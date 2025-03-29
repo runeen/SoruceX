@@ -114,17 +114,17 @@ class AudioModel(torch.nn.Module):
         super().__init__()
         self.encoder1 = torch.nn.Conv2d(3, 10, (20, 5), padding='same')
         self.encoder2 = torch.nn.Conv2d(10, 15, (20, 5), padding='same')
-        #self.encoder3 = torch.nn.Conv2d(15, 20, (20, 5), padding='same')
-        #self.encoder4 = torch.nn.Conv2d(20, 60, (20, 5), padding='same')
+        self.encoder3 = torch.nn.Conv2d(15, 20, (20, 5), padding='same')
+        self.encoder4 = torch.nn.Conv2d(20, 60, (20, 5), padding='same')
 
 
-        #self.decoder4 = torch.nn.Conv2d(60, 20, (20, 5), padding='same')
-        #self.decoder3 = torch.nn.Conv2d(20, 15, (20, 5), padding='same')
+        self.decoder4 = torch.nn.Conv2d(60, 20, (20, 5), padding='same')
+        self.decoder3 = torch.nn.Conv2d(20, 15, (20, 5), padding='same')
         self.decoder2 = torch.nn.Conv2d(15, 10, (20, 5), padding='same')
-        self.decoder1 = torch.nn.Conv2d(10, 4, (20, 5), padding='same')
+        self.decoder1 = torch.nn.Conv2d(10, 3, (20, 5), padding='same')
 
 
-    def forward(self, x):
+    def forward(self, x : torch.Tensor):
         x = x.permute(2, 0, 1)
         #saved = [x]
 
@@ -132,13 +132,13 @@ class AudioModel(torch.nn.Module):
         #saved.append(x)
         x = self.encoder2(x)
         #saved.append(x)
-        #x = self.encoder3(x)
+        x = self.encoder3(x)
 
-        #x = self.encoder4(x)
+        x = self.encoder4(x)
 
 
-        #x = self.decoder4(x)
-        #x = self.decoder3(x)
+        x = self.decoder4(x)
+        x = self.decoder3(x)
         x = self.decoder2(x)
         x = self.decoder1(x)
 
@@ -162,7 +162,7 @@ criterion.requires_grad_(True)
 print(f'shape musdb {mus}')
 
 #original 2e-5
-learning_rate = 2e-5
+learning_rate = 2e-4
 #original era Adam aici
 optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
 
@@ -170,9 +170,12 @@ torch.set_grad_enabled(True)
 
 sdr = SignalDistortionRatio
 
-for t in range(0, 200):
+for t in range(0, 1000):
     for song in range(len(mus)):
-        x_true = torch.from_numpy(genereaza_tensor_din_stereo(mus[song].audio))
+        audio_original = mus[song].audio
+        x_true = torch.from_numpy(genereaza_tensor_din_stereo(audio_original))
+        audio_original = torch.from_numpy(audio_original).to(device= 'cuda', dtype=torch.float32)
+
         x_true = x_true.to(torch.float32)
         x_true = x_true.to(device = "cuda")
         #print(f'x_true.shape: {x_true.shape}')
@@ -183,6 +186,11 @@ for t in range(0, 200):
         #print(f'y_true.shape: {y_true.shape}')
 
         y_pred = model(x_true)
+        y_pred = torch.cat((y_pred, (audio_original - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
+        temp = y_pred.clone()
+        temp[2, :, :] = y_pred[3, :, :]
+        temp[3, :, :] = y_pred[2, :, :]
+        y_pred = temp
         print(f'y_pred shape: {y_pred.shape}')
 
         #y_pred = apply_high_pass(y_pred)
@@ -213,6 +221,15 @@ for t in range(0, 200):
             )
 
             print(scores)
+
+            try:
+                write(f'original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                write(f'bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                write(f'drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
+                write(f'other.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                write(f'vocals.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+            except:
+                print("bruh")
 
 
         #sdr, sir, sar, perm = fast_bss_eval.bss_eval_sources(y_pred.T, y_true.T)

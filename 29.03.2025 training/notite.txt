@@ -1,0 +1,7 @@
+Rezultate surprinzatoare considerand faptul ca avem convolutii de maxim 60 de canale si nici-un skip connection sau lstm. Asta si se si aude faptul ca bassul este mai proeminent in bass.wav si tobele sunt mai proeminente in drums.wav.
+
+t- 146, song- 99, mse: 0.003409061348065734, rmse:0.05838716766606969
+vocals          ==> SDR:   0.485  SIR:  -5.063  ISR:   0.778  SAR:  12.471  
+drums           ==> SDR:   1.385  SIR:  -2.285  ISR:   2.231  SAR:  12.156  
+bass            ==> SDR:   2.469  SIR:  -1.331  ISR:   4.397  SAR:  11.692  
+other           ==> SDR:  -3.058  SIR:  -4.958  ISR:   6.290  SAR:   9.466  
