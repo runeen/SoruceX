@@ -1,3 +1,5 @@
+import time
+
 import torch
 import math
 import random
@@ -42,19 +44,120 @@ def genereaza_tensor_din_stereo(tensor):
     output_3_axe = output[..., np.newaxis]
 
 
-    cutoff = 1000
+    cutoff = 100
     fs = mus[0].rate
 
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='low', analog=False)
+    b, a = butter(3, normal_cutoff, btype='low', analog=False)
 
     output_3_axe_nou = genereaza_strat_banda(output, (b, a))[..., newaxis]
 
+
+    cutoff = 200
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(3, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    cutoff = 400
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(4, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = 800
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(6, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = 1600
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(8, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = 3200
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(8, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = 6400
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(8, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = 12800
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(8, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    '''
+    cutoff = 25600
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(8, normal_cutoff, btype='low', analog=False)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, output_3_axe], axis = 2)
+    '''
+
+
+
+
+
+
+
     #output_3_axe    = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
+    '''
+    cutoff = np.array([100, 200])
+    fs = mus[0].rate
 
-    cutoff = np.array([1000, 10000])
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(3, normal_cutoff, btype='band', analog=False)
+
+    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+
+    cutoff = np.array([200, 400])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(4, normal_cutoff, btype='band', analog=False)
+
+    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    cutoff = np.array([400, 800])
     fs = mus[0].rate
 
     nyq = 0.5 * fs
@@ -65,17 +168,83 @@ def genereaza_tensor_din_stereo(tensor):
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
 
-    cutoff = 10000
+    cutoff = np.array([800, 1600])
     fs = mus[0].rate
 
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='high', analog=False)
+    b, a = butter(7, normal_cutoff, btype='band', analog=False)
 
     #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
+
+    cutoff = np.array([1600, 3200])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(7, normal_cutoff, btype='band', analog=False)
+
+    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    cutoff = np.array([3200, 6400])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(7, normal_cutoff, btype='band', analog=False)
+
+    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+
+    cutoff = np.array([6400, 12800])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(7, normal_cutoff, btype='band', analog=False)
+
+    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    '''
+    '''
+    cutoff = np.array([12800, 25600])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(2, normal_cutoff, btype='band', analog=False)
+
+    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    
+    
+    cutoff = np.array([10240, 20480])
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(2, normal_cutoff, btype='band', analog=False)
+
+    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    '''
+    '''
+    cutoff = 12800
+    fs = mus[0].rate
+
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(7, normal_cutoff, btype='high', analog=False)
+
+    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    '''
+
     #return output_3_axe
+    print(f'{output_3_axe_nou.shape}')
     return output_3_axe_nou
 
 def apply_high_pass(tensor):
@@ -85,7 +254,7 @@ def apply_high_pass(tensor):
 
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(2, normal_cutoff, btype='high', analog=False)
+    b, a = butter(3, normal_cutoff, btype='high', analog=False)
     y = filtfilt(b, a, tensor, 1)
     y = torch.tensor(y.copy(), requires_grad=True, dtype=torch.float32)
     return y
@@ -112,37 +281,68 @@ nr_samples = mus[0].audio.shape[0]
 class AudioModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder1 = torch.nn.Conv2d(3, 10, (20, 5), padding='same')
-        self.encoder2 = torch.nn.Conv2d(10, 15, (20, 5), padding='same')
-        self.encoder3 = torch.nn.Conv2d(15, 20, (20, 5), padding='same')
-        self.encoder4 = torch.nn.Conv2d(20, 60, (20, 5), padding='same')
+
+        #am scos 0.001 la vocals (finally) [a stat sa gateasca cam 40 de min]
+        #drums si bass sunt in urma pt ca se topesc intre ele la frecventele joase?
+        #   (conv se fac separat pe benzi (kernel_size[1] = 1) deci nu luam in considerare
+        #   infomratiile stereo (macar nu relatia dintre ele))
 
 
-        self.decoder4 = torch.nn.Conv2d(60, 20, (20, 5), padding='same')
-        self.decoder3 = torch.nn.Conv2d(20, 15, (20, 5), padding='same')
-        self.decoder2 = torch.nn.Conv2d(15, 10, (20, 5), padding='same')
-        self.decoder1 = torch.nn.Conv2d(10, 3, (20, 5), padding='same')
+        self.enc_canale = torch.nn.Sequential(
+            torch.nn.Conv2d(8, 12, (1, 1), padding='same'),
+            torch.nn.Conv2d(12, 18, (3, 1), padding='same'),
+            torch.nn.Conv2d(18, 25, (5, 1), padding='same'),
+            torch.nn.Conv2d(25, 30, (7, 1), padding='same'),
+            torch.nn.Conv2d(30, 45, (7, 1), padding='same'),
+            torch.nn.Conv2d(45, 60, (9, 1), padding='same'),
+            torch.nn.Conv2d(60, 75, (13, 1), padding='same'),
+            #torch.nn.Conv2d(75, 81, (9, 1), padding='same'),
+        )
+
+        #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
+        #atunci scoate idk
+
+        self.dec_stem = torch.nn.Sequential(
+            #torch.nn.GLU(dim = 0),
+            #torch.nn.Conv2d(81, 75, (11, 1), padding='same'),
+            torch.nn.Conv2d(75, 61, (13, 1), padding='same'),
+            torch.nn.Conv2d(61, 41, (13, 1), padding='same'),
+            torch.nn.Conv2d(41, 25, (9, 1), padding='same'),
+            torch.nn.Conv2d(25, 19, (9, 1), padding='same'),
+            torch.nn.Conv2d(19, 12, (7, 1), padding='same'),
+            torch.nn.Conv2d(12, 3, (7, 1), padding='same')
+        )
 
 
     def forward(self, x : torch.Tensor):
+
+        #x = x[..., torch.newaxis]
+
         x = x.permute(2, 0, 1)
-        #saved = [x]
 
-        x = self.encoder1(x)
-        #saved.append(x)
-        x = self.encoder2(x)
-        #saved.append(x)
-        x = self.encoder3(x)
+        #print(f'x inainte de enc: {x.shape}')
 
-        x = self.encoder4(x)
+        #x = self.enc_benzi(x)
+        #x = x[:, 3:, :, :]
+        #print(f'x dupa enc_benzi: {x.shape}')
+
+        #x = x[:, :, :, 0]
+
+        x = self.enc_canale(x)
+        #print(f'x dupa enc_canale: {x.shape}')
+
+        x = self.dec_stem(x)
+        #print(f'x dupa dec_stem: {x.shape}')
+
+        #print(x.shape)
 
 
-        x = self.decoder4(x)
-        x = self.decoder3(x)
-        x = self.decoder2(x)
-        x = self.decoder1(x)
+        #x = x.sum(axis=3)
 
-        #x = x.permute()
+        #print(x.shape)
+
+
+        #jx = x.permute(0, 2, 1)
         return x[:, :, :2]
 
 
@@ -157,6 +357,7 @@ model = AudioModel()
 
 #original L1Loss
 criterion = torch.nn.MSELoss(reduction='mean')
+#criterion = torch.nn.L1Loss()
 criterion.requires_grad_(True)
 
 print(f'shape musdb {mus}')
@@ -170,71 +371,82 @@ torch.set_grad_enabled(True)
 
 sdr = SignalDistortionRatio
 
+t0 = time.perf_counter()
 for t in range(0, 1000):
     for song in range(len(mus)):
+
         audio_original = mus[song].audio
         x_true = torch.from_numpy(genereaza_tensor_din_stereo(audio_original))
         audio_original = torch.from_numpy(audio_original).to(device= 'cuda', dtype=torch.float32)
 
         x_true = x_true.to(torch.float32)
         x_true = x_true.to(device = "cuda")
+        #print(f'x_true {x_true[0, 0, :]}')
         #print(f'x_true.shape: {x_true.shape}')
 
-        y_true = torch.from_numpy(mus[song].stems[1:, :, :])
+        # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+        # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
+        y_true = torch.from_numpy(mus[song].stems[(1, 2, 4, 3), :, :])
         y_true = y_true.to(torch.float32)
         y_true = y_true.to(device = "cuda")
-        #print(f'y_true.shape: {y_true.shape}')
 
-        y_pred = model(x_true)
-        y_pred = torch.cat((y_pred, (audio_original - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
-        temp = y_pred.clone()
-        temp[2, :, :] = y_pred[3, :, :]
-        temp[3, :, :] = y_pred[2, :, :]
-        y_pred = temp
-        print(f'y_pred shape: {y_pred.shape}')
+        #y_pred = model(x_true[:50001, :, :])
+        #y_pred = torch.cat((y_pred, (audio_original[:50001, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
+        y_pred = model(x_true[:, :, :])
+        y_pred = torch.cat((y_pred, (audio_original[:, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
 
-        #y_pred = apply_high_pass(y_pred)
-
-        #print(f'y_pred.shape: {y_pred.shape}')
+        #print(f'y_pred shape: {y_pred.shape}')
+        #print(f'y_pred: {y_pred}')
 
 
 
-        loss = criterion(y_pred, y_true)
-        #if t % 10 == 9:
-        #plafoneaza pe la 0.05
-        print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
+        #loss = criterion(y_pred, y_true[:, :50001, :])
+        loss = criterion(y_pred, y_true[:, :, :])
+        if song % 10 == 9:
+            print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
+        #print(f't- {t}, song- {song}, loss: {loss.item()}')
 
 
-        if song % 100 == 99:
+        if song % 200 == 99:
             y_pred = y_pred.to(device="cpu")
             y_pred_np = y_pred.detach().numpy()
+
+            #y_true = y_true.to(device="cpu")
+            #y_true_np = y_true.detach().numpy()
+
+            # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+            # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
             estimates = {
                 'drums': y_pred_np[0, :, :],
                 'bass': y_pred_np[1, :, :],
-                'other': y_pred_np[2, :, :],
-                'vocals': y_pred_np[3, :, :]
+                'vocals': y_pred_np[2, :, :],
+                'other': y_pred_np[3, :, :]
+
             }
 
             scores = museval.eval_mus_track(
                 mus[song],
                 estimates
             )
-
             print(scores)
+
+
+            # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+            # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
 
             try:
                 write(f'original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                write(f'bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
                 write(f'drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                write(f'other.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                write(f'vocals.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+                write(f'bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                write(f'vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                write(f'other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
             except:
                 print("bruh")
 
 
-        #sdr, sir, sar, perm = fast_bss_eval.bss_eval_sources(y_pred.T, y_true.T)
-        #print(f'SDR: {sdr}')
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        t1 = time.perf_counter()
+        print(f'dt = {t1 - t0}')
+        t0 = time.perf_counter()
