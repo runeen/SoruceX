@@ -288,15 +288,16 @@ class AudioModel(torch.nn.Module):
         #   infomratiile stereo (macar nu relatia dintre ele))
 
 
-        self.enc_canale = torch.nn.Sequential(
-            torch.nn.Conv2d(8, 12, (1, 1), padding='same'),
-            torch.nn.Conv2d(12, 18, (3, 1), padding='same'),
-            torch.nn.Conv2d(18, 25, (5, 1), padding='same'),
-            torch.nn.Conv2d(25, 30, (7, 1), padding='same'),
-            torch.nn.Conv2d(30, 45, (7, 1), padding='same'),
-            torch.nn.Conv2d(45, 60, (9, 1), padding='same'),
-            torch.nn.Conv2d(60, 75, (13, 1), padding='same'),
-            #torch.nn.Conv2d(75, 81, (9, 1), padding='same'),
+        self.enc_benzi = torch.nn.Sequential(
+            torch.nn.Conv1d(8, 12, 1, padding='same'),
+            torch.nn.Conv1d(12, 18, 3, padding='same'),
+            torch.nn.Conv1d(18, 25, 5, padding='same'),
+            torch.nn.Conv1d(25, 30, 7, padding='same'),
+            torch.nn.Conv1d(30, 45, 7, padding='same'),
+            torch.nn.Conv1d(45, 60, 9, padding='same'),
+            torch.nn.Conv1d(60, 75, 13, padding='same'),
+            torch.nn.Conv1d(75, 81, 15, padding='same'),
+            torch.nn.Conv1d(81, 97, 19, padding='same'),
         )
 
         #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
@@ -304,13 +305,14 @@ class AudioModel(torch.nn.Module):
 
         self.dec_stem = torch.nn.Sequential(
             #torch.nn.GLU(dim = 0),
-            #torch.nn.Conv2d(81, 75, (11, 1), padding='same'),
-            torch.nn.Conv2d(75, 61, (13, 1), padding='same'),
-            torch.nn.Conv2d(61, 41, (13, 1), padding='same'),
-            torch.nn.Conv2d(41, 25, (9, 1), padding='same'),
-            torch.nn.Conv2d(25, 19, (9, 1), padding='same'),
-            torch.nn.Conv2d(19, 12, (7, 1), padding='same'),
-            torch.nn.Conv2d(12, 3, (7, 1), padding='same')
+            torch.nn.Conv1d(97, 81, 19, padding='same'),
+            torch.nn.Conv1d(81, 75, 15, padding='same'),
+            torch.nn.Conv1d(75, 61, 13, padding='same'),
+            torch.nn.Conv1d(61, 41, 13, padding='same'),
+            torch.nn.Conv1d(41, 25, 9, padding='same'),
+            torch.nn.Conv1d(25, 19, 9, padding='same'),
+            torch.nn.Conv1d(19, 12, 7, padding='same'),
+            torch.nn.Conv1d(12, 3, 7, padding='same')
         )
 
 
@@ -318,18 +320,11 @@ class AudioModel(torch.nn.Module):
 
         #x = x[..., torch.newaxis]
 
-        x = x.permute(2, 0, 1)
+        x = x[:, :2, :]
+        x = x.permute(1, 2, 0)
 
-        #print(f'x inainte de enc: {x.shape}')
-
-        #x = self.enc_benzi(x)
-        #x = x[:, 3:, :, :]
+        x = self.enc_benzi(x)
         #print(f'x dupa enc_benzi: {x.shape}')
-
-        #x = x[:, :, :, 0]
-
-        x = self.enc_canale(x)
-        #print(f'x dupa enc_canale: {x.shape}')
 
         x = self.dec_stem(x)
         #print(f'x dupa dec_stem: {x.shape}')
@@ -341,7 +336,7 @@ class AudioModel(torch.nn.Module):
 
         #print(x.shape)
 
-
+        x = x.permute(1, 2, 0)
         #jx = x.permute(0, 2, 1)
         return x[:, :, :2]
 
@@ -389,6 +384,7 @@ for t in range(0, 1000):
         y_true = torch.from_numpy(mus[song].stems[(1, 2, 4, 3), :, :])
         y_true = y_true.to(torch.float32)
         y_true = y_true.to(device = "cuda")
+
 
         #y_pred = model(x_true[:50001, :, :])
         #y_pred = torch.cat((y_pred, (audio_original[:50001, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
