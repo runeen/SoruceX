@@ -44,204 +44,32 @@ def genereaza_tensor_din_stereo(tensor):
     output_3_axe = output[..., np.newaxis]
 
 
-    cutoff = 100
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(3, normal_cutoff, btype='low', analog=False)
-
-    output_3_axe_nou = genereaza_strat_banda(output, (b, a))[..., newaxis]
-
-
-    cutoff = 200
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(3, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
     cutoff = 400
     fs = mus[0].rate
 
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(4, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    b, a = butter(5, normal_cutoff, btype='low', analog=False)
+
+    output_3_axe_nou = genereaza_strat_banda(output, (b, a))[..., newaxis]
 
 
-    cutoff = 800
+    cutoff = np.array([400, 1900])
     fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(6, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-
-    cutoff = 1600
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(8, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-
-    cutoff = 3200
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(8, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-
-    cutoff = 6400
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(8, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-
-    cutoff = 12800
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(8, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    '''
-    cutoff = 25600
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(8, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, output_3_axe], axis = 2)
-    '''
-
-
-
-
-
-
-
-    #output_3_axe    = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    '''
-    cutoff = np.array([100, 200])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(3, normal_cutoff, btype='band', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-
-    cutoff = np.array([200, 400])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(4, normal_cutoff, btype='band', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([400, 800])
-    fs = mus[0].rate
-
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(5, normal_cutoff, btype='band', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
-
-    cutoff = np.array([800, 1600])
+    cutoff = 1900
     fs = mus[0].rate
-
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    b, a = butter(7, normal_cutoff, btype='band', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
+    b, a = butter(5, normal_cutoff, btype='high', analog=False)
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
 
-    cutoff = np.array([1600, 3200])
-    fs = mus[0].rate
 
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(7, normal_cutoff, btype='band', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([3200, 6400])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(7, normal_cutoff, btype='band', analog=False)
-
-    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([6400, 12800])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(7, normal_cutoff, btype='band', analog=False)
-
-    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    '''
-    '''
-    cutoff = np.array([12800, 25600])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(2, normal_cutoff, btype='band', analog=False)
-
-    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    
-    
-    cutoff = np.array([10240, 20480])
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(2, normal_cutoff, btype='band', analog=False)
-
-    # output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    '''
-    '''
-    cutoff = 12800
-    fs = mus[0].rate
-
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(7, normal_cutoff, btype='high', analog=False)
-
-    #output_3_axe = np.concatenate([output_3_axe, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-    '''
 
     #return output_3_axe
     print(f'{output_3_axe_nou.shape}')
@@ -262,16 +90,6 @@ def apply_high_pass(tensor):
 
 genereaza_tensor_din_stereo(mus[0].audio)
 
-'''
-output_file = tensor_3_axe[:, 2, 1]
-print(output_file.dtype)
-print(f'OUTPUT TENSOR (TEST) \n{output_file}\n\tSHAPE: {output_file.shape}')
-output_file = output_file * 32767
-output_file = output_file.astype(np.int16)
-print(f'OUTPUT TENSOR (TEST) \n{output_file}\n\tSHAPE: {output_file.shape}')
-
-write("output wav.wav", fs, output_file)
-'''
 
 nr_samples = mus[0].audio.shape[0]
 
@@ -289,55 +107,31 @@ class AudioModel(torch.nn.Module):
 
 
         self.enc_benzi = torch.nn.Sequential(
-            torch.nn.Conv1d(8, 12, 1, padding='same'),
-            torch.nn.Conv1d(12, 18, 3, padding='same'),
-            torch.nn.Conv1d(18, 25, 5, padding='same'),
-            torch.nn.Conv1d(25, 30, 7, padding='same'),
-            torch.nn.Conv1d(30, 45, 7, padding='same'),
-            torch.nn.Conv1d(45, 60, 9, padding='same'),
-            torch.nn.Conv1d(60, 75, 13, padding='same'),
-            torch.nn.Conv1d(75, 81, 15, padding='same'),
-            torch.nn.Conv1d(81, 97, 19, padding='same'),
+            torch.nn.Conv2d(3, 10, (20, 5), padding='same'),
+            torch.nn.Conv2d(10, 15, (20, 5), padding='same'),
+            torch.nn.Conv2d(15, 20, (20, 5), padding='same'),
+            torch.nn.Conv2d(20, 60, (20, 5), padding='same')
         )
 
         #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
         #atunci scoate idk
 
+        # gandestete la ce padding mode sa folosesti (mai ales pt stereo)
         self.dec_stem = torch.nn.Sequential(
-            #torch.nn.GLU(dim = 0),
-            torch.nn.Conv1d(97, 81, 19, padding='same'),
-            torch.nn.Conv1d(81, 75, 15, padding='same'),
-            torch.nn.Conv1d(75, 61, 13, padding='same'),
-            torch.nn.Conv1d(61, 41, 13, padding='same'),
-            torch.nn.Conv1d(41, 25, 9, padding='same'),
-            torch.nn.Conv1d(25, 19, 9, padding='same'),
-            torch.nn.Conv1d(19, 12, 7, padding='same'),
-            torch.nn.Conv1d(12, 3, 7, padding='same')
+            torch.nn.Conv2d(60, 20, (20, 5), padding='same'),
+            torch.nn.Conv2d(20, 15, (20, 5), padding='same'),
+            torch.nn.Conv2d(15, 10, (20, 5), padding='same'),
+            torch.nn.Conv2d(10, 3, (20, 5), padding='same'),
         )
 
 
     def forward(self, x : torch.Tensor):
-
-        #x = x[..., torch.newaxis]
-
-        x = x[:, :2, :]
-        x = x.permute(1, 2, 0)
+        x = x.permute(2, 0, 1)
 
         x = self.enc_benzi(x)
-        #print(f'x dupa enc_benzi: {x.shape}')
 
         x = self.dec_stem(x)
-        #print(f'x dupa dec_stem: {x.shape}')
 
-        #print(x.shape)
-
-
-        #x = x.sum(axis=3)
-
-        #print(x.shape)
-
-        x = x.permute(1, 2, 0)
-        #jx = x.permute(0, 2, 1)
         return x[:, :, :2]
 
 
@@ -350,9 +144,7 @@ torch.set_default_device("cuda")
 
 model = AudioModel()
 
-#original L1Loss
 criterion = torch.nn.MSELoss(reduction='mean')
-#criterion = torch.nn.L1Loss()
 criterion.requires_grad_(True)
 
 print(f'shape musdb {mus}')
@@ -376,8 +168,6 @@ for t in range(0, 1000):
 
         x_true = x_true.to(torch.float32)
         x_true = x_true.to(device = "cuda")
-        #print(f'x_true {x_true[0, 0, :]}')
-        #print(f'x_true.shape: {x_true.shape}')
 
         # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
         # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
@@ -385,30 +175,17 @@ for t in range(0, 1000):
         y_true = y_true.to(torch.float32)
         y_true = y_true.to(device = "cuda")
 
-
-        #y_pred = model(x_true[:50001, :, :])
-        #y_pred = torch.cat((y_pred, (audio_original[:50001, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
-        y_pred = model(x_true[:, :, :])
+        y_pred = model(x_true)
         y_pred = torch.cat((y_pred, (audio_original[:, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
 
-        #print(f'y_pred shape: {y_pred.shape}')
-        #print(f'y_pred: {y_pred}')
-
-
-
-        #loss = criterion(y_pred, y_true[:, :50001, :])
-        loss = criterion(y_pred, y_true[:, :, :])
+        loss = criterion(y_pred, y_true)
         if song % 10 == 9:
             print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
-        #print(f't- {t}, song- {song}, loss: {loss.item()}')
 
 
         if song % 200 == 99:
             y_pred = y_pred.to(device="cpu")
             y_pred_np = y_pred.detach().numpy()
-
-            #y_true = y_true.to(device="cpu")
-            #y_true_np = y_true.detach().numpy()
 
             # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
             # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
@@ -431,11 +208,11 @@ for t in range(0, 1000):
             # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
 
             try:
-                write(f'original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                write(f'drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                write(f'bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
-                write(f'vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                write(f'other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/2.4.25 training/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                write(f'istorie antrenari/2.4.25 training/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/2.4.25 training/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/2.4.25 training/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/2.4.25 training/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
             except:
                 print("bruh")
 

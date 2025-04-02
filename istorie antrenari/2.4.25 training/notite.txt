@@ -1,0 +1,7 @@
+rezultate similare cu cele de pe 29.
+Cred ca sursa interferentelor (scorul SIR negativ) este faptul ca
+il calculam pe others ca diferenta dintre semnalul original
+si stemurile de voce bass si tobe.
+
+Trb sa rulez din nou fara sa calculez automat others ci sa las
+modelul sa l aproximeze.
