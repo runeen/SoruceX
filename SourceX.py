@@ -107,10 +107,10 @@ class AudioModel(torch.nn.Module):
 
 
         self.enc_benzi = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 10, (20, 5), padding='same'),
-            torch.nn.Conv2d(10, 15, (20, 5), padding='same'),
-            torch.nn.Conv2d(15, 20, (20, 5), padding='same'),
-            torch.nn.Conv2d(20, 60, (20, 5), padding='same')
+            torch.nn.Conv2d(3, 10, (21, 5), padding='same'),
+            torch.nn.Conv2d(10, 15, (21, 5), padding='same'),
+            torch.nn.Conv2d(15, 20, (21, 5), padding='same'),
+            torch.nn.Conv2d(20, 60, (21, 5), padding='same')
         )
 
         #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
@@ -118,10 +118,10 @@ class AudioModel(torch.nn.Module):
 
         # gandestete la ce padding mode sa folosesti (mai ales pt stereo)
         self.dec_stem = torch.nn.Sequential(
-            torch.nn.Conv2d(60, 20, (20, 5), padding='same'),
-            torch.nn.Conv2d(20, 15, (20, 5), padding='same'),
-            torch.nn.Conv2d(15, 10, (20, 5), padding='same'),
-            torch.nn.Conv2d(10, 3, (20, 5), padding='same'),
+            torch.nn.Conv2d(60, 20, (21, 5), padding='same'),
+            torch.nn.Conv2d(20, 15, (21, 5), padding='same'),
+            torch.nn.Conv2d(15, 10, (21, 5), padding='same'),
+            torch.nn.Conv2d(10, 4, (21, 5), padding='same'),
         )
 
 
@@ -176,7 +176,7 @@ for t in range(0, 1000):
         y_true = y_true.to(device = "cuda")
 
         y_pred = model(x_true)
-        y_pred = torch.cat((y_pred, (audio_original[:, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
+        #y_pred = torch.cat((y_pred, (audio_original[:, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
 
         loss = criterion(y_pred, y_true)
         if song % 10 == 9:
