@@ -128,8 +128,11 @@ class AudioModel(torch.nn.Module):
     def forward(self, x : torch.Tensor):
         x = x.permute(2, 0, 1)
 
-        x = self.enc_benzi(x)
+        #daca vreau sa folosesc lstm trb sa impart
+        #tensorul in batch-uri mult mai mici.
+        #sau sa fac downsampling
 
+        x = self.enc_benzi(x)
         x = self.dec_stem(x)
 
         return x[:, :, :2]
@@ -208,11 +211,11 @@ for t in range(0, 1000):
             # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
 
             try:
-                write(f'istorie antrenari/2.4.25 training/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                write(f'istorie antrenari/2.4.25 training/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/2.4.25 training/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/2.4.25 training/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/2.4.25 training/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
             except:
                 print("bruh")
 
