@@ -105,24 +105,31 @@ class AudioModel(torch.nn.Module):
         #   (conv se fac separat pe benzi (kernel_size[1] = 1) deci nu luam in considerare
         #   infomratiile stereo (macar nu relatia dintre ele))
 
+        self.downsample = torch.nn.Sequential(
+            torch.nn.Conv1d(3, 40, 20, 4), torch.nn.ReLU()
+        )
+        self.enc_filter = torch.nn.Sequential(
+            torch.nn.Conv2d(40, 40, (20, 5), padding='same', padding_mode='circular'), torch.nn.GLU(0)
+        )
 
-        self.enc_benzi = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 10, (21, 5), padding='same'),
-            torch.nn.Conv2d(10, 15, (21, 5), padding='same'),
-            torch.nn.Conv2d(15, 20, (21, 5), padding='same'),
-            torch.nn.Conv2d(20, 60, (21, 5), padding='same')
+        self.upsample = torch.nn.Sequential(
+            torch.nn.ConvTranspose1d(20, 4, 20, 4), torch.nn.ReLU()
+        )
+
+        self.dec_filter1 = torch.nn.Sequential(
+            torch.nn.Conv2d(20, 20, (10, 5), padding = 'same', padding_mode='circular'), torch.nn.ReLU()
+        )
+
+        self.dec_filter2 = torch.nn.Sequential(
+            torch.nn.Conv2d(40, 40, (10, 5), padding='same', padding_mode='circular'), torch.nn.GLU(0)
         )
 
         #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
         #atunci scoate idk
 
         # gandestete la ce padding mode sa folosesti (mai ales pt stereo)
-        self.dec_stem = torch.nn.Sequential(
-            torch.nn.Conv2d(60, 20, (21, 5), padding='same'),
-            torch.nn.Conv2d(20, 15, (21, 5), padding='same'),
-            torch.nn.Conv2d(15, 10, (21, 5), padding='same'),
-            torch.nn.Conv2d(10, 4, (21, 5), padding='same'),
-        )
+        #self.dec_stem = torch.nn.Sequential(
+        #)
 
 
     def forward(self, x : torch.Tensor):
@@ -132,9 +139,25 @@ class AudioModel(torch.nn.Module):
         #tensorul in batch-uri mult mai mici.
         #sau sa fac downsampling
 
-        x = self.enc_benzi(x)
-        x = self.dec_stem(x)
+        x = x.permute(2, 0, 1)
+        print(f'forma x inainte downsample {x.shape}')
+        x = self.downsample(x)
+        print(f'forma x inainte filtru {x.shape}')
+        x = x.permute(1, 2, 0)
+        x = self.enc_filter(x)
+        skip = x
+        print(f'forma x dupa filtru {x.shape}')
 
+        x = self.dec_filter1(x)
+        x = torch.cat([x, skip], dim = 0)
+        x = self.dec_filter2(x)
+        x = x.permute(2, 0, 1)
+        x = self.upsample(x)
+        x = x.permute(1, 2, 0)
+
+        #x = x.permute
+
+        print(f'x la iesire: {x.shape}')
         return x[:, :, :2]
 
 
@@ -199,25 +222,27 @@ for t in range(0, 1000):
                 'other': y_pred_np[3, :, :]
 
             }
-
-            scores = museval.eval_mus_track(
-                mus[song],
-                estimates
-            )
-            print(scores)
-
-
-            # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-            # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-
             try:
-                write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+                scores = museval.eval_mus_track(
+                    mus[song],
+                    estimates
+                )
+                print(scores)
+
+
+                # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+                # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
+
+                try:
+                    write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+                except:
+                    print("bruh")
             except:
-                print("bruh")
+                print("problema cu scorurile... womp womp!")
 
 
         optimizer.zero_grad()
