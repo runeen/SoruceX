@@ -7,8 +7,9 @@ import numpy as np
 from torchmetrics.audio import SignalDistortionRatio
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-
+torch.backends.cudnn.deterministic = True
 print(np.__version__)
+print(torch.__version__)
 import musdb
 import tqdm
 import museval
@@ -23,6 +24,13 @@ import incarca_audio
 
 mus = musdb.DB(download=True)
 
+def center_trim(tensor, reference):
+    #aproape la fel ca in demucs...
+
+    reference = reference.size(-1)
+    delta = tensor.size(-1) - reference
+    tensor = tensor[..., delta // 2 : -(delta - delta // 2)]
+
 
 def genereaza_strat_banda(tensor, filter):
     y = filtfilt(filter[0], filter[1], tensor, 0)
@@ -30,6 +38,7 @@ def genereaza_strat_banda(tensor, filter):
     return y
 
 def genereaza_tensor_din_stereo(tensor):
+    '''
     mono = np.average(tensor, 1).reshape(-1, 1)
     #print(f'MONO SHAPE: {mono.shape}')
 
@@ -40,7 +49,8 @@ def genereaza_tensor_din_stereo(tensor):
 
     output = np.hstack([output, separated])
     #print(f'TENSOR: \n{output}\n\tSHAPE: {output.shape}')
-
+    '''
+    output = tensor
     output_3_axe = output[..., np.newaxis]
 
 
@@ -72,7 +82,7 @@ def genereaza_tensor_din_stereo(tensor):
 
 
     #return output_3_axe
-    print(f'{output_3_axe_nou.shape}')
+    #print(f'{output_3_axe_nou.shape}')
     return output_3_axe_nou
 
 def apply_high_pass(tensor):
@@ -88,12 +98,6 @@ def apply_high_pass(tensor):
     return y
 
 
-genereaza_tensor_din_stereo(mus[0].audio)
-
-
-nr_samples = mus[0].audio.shape[0]
-
-
 
 
 class AudioModel(torch.nn.Module):
@@ -105,23 +109,56 @@ class AudioModel(torch.nn.Module):
         #   (conv se fac separat pe benzi (kernel_size[1] = 1) deci nu luam in considerare
         #   infomratiile stereo (macar nu relatia dintre ele))
 
-        self.downsample = torch.nn.Sequential(
-            torch.nn.Conv1d(3, 40, 20, 4), torch.nn.ReLU()
-        )
-        self.enc_filter = torch.nn.Sequential(
-            torch.nn.Conv2d(40, 40, (20, 5), padding='same', padding_mode='circular'), torch.nn.GLU(0)
+        self.downsample_layer_1 = torch.nn.Sequential(
+                torch.nn.Conv1d(3, 40, 4, 2), torch.nn.Mish()
         )
 
-        self.upsample = torch.nn.Sequential(
-            torch.nn.ConvTranspose1d(20, 4, 20, 4), torch.nn.ReLU()
+        self.downsample_layer_2 = torch.nn.Sequential(
+                torch.nn.Conv1d(30, 200, 4, 2), torch.nn.Mish()
+        )
+        self.enc_filter_layer_1 = torch.nn.Sequential(
+            torch.nn.Conv2d(40, 60, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0)
         )
 
-        self.dec_filter1 = torch.nn.Sequential(
-            torch.nn.Conv2d(20, 20, (10, 5), padding = 'same', padding_mode='circular'), torch.nn.ReLU()
+        self.enc_filter_layer_2 = torch.nn.Sequential(
+            torch.nn.Conv2d(200, 400, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0)
         )
 
-        self.dec_filter2 = torch.nn.Sequential(
-            torch.nn.Conv2d(40, 40, (10, 5), padding='same', padding_mode='circular'), torch.nn.GLU(0)
+
+        self.upsample_layer_1 = torch.nn.Sequential(
+            torch.nn.ConvTranspose1d(30, 20, 4, 2), torch.nn.Mish(),
+        )
+
+        self.upsample_layer_2 = torch.nn.Sequential(
+            torch.nn.ConvTranspose1d(200, 30, 4, 2), torch.nn.Mish(),
+        )
+
+        #nu stiu ce sa pun in loc de linear aici dar cu relu sigur nu mergea ca ieseau doar
+        #valori intre 0 si 1
+        self.merge_into_stems = torch.nn.Sequential(
+            torch.nn.Linear(20, 15),
+            torch.nn.Linear(15, 10),
+            torch.nn.Linear(10, 4),
+        )
+
+        self.dec_filter1_layer_1 = torch.nn.Sequential(
+            torch.nn.Conv2d(30, 30, (20, 2), padding = 'same', padding_mode='circular'), torch.nn.Mish()
+        )
+
+        self.dec_filter1_layer_2 = torch.nn.Sequential(
+            torch.nn.Conv2d(200, 200, (20, 2), padding='same', padding_mode='circular'), torch.nn.ReLU()
+        )
+
+        self.dec_filter2_layer_1 = torch.nn.Sequential(
+            torch.nn.Conv1d(60, 60, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
+        )
+
+        self.dec_filter2_layer_2 = torch.nn.Sequential(
+            torch.nn.Conv1d(400, 400, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
+        )
+
+        self.LSTM = torch.nn.Sequential(
+            torch.nn.LSTM(bidirectional=False, num_layers = 1, hidden_size=200, input_size=200)
         )
 
         #am adaugat kernele de 5 pe dim canale... posibil sa nu ajunga nicaieri si daca asta e cazul
@@ -135,29 +172,68 @@ class AudioModel(torch.nn.Module):
     def forward(self, x : torch.Tensor):
         x = x.permute(2, 0, 1)
 
+        #yo vezi ca am scos canalele de mono si sl/sr cred ca sunt degeaba idk tho.
+        #gen deaia avem conv 2d dummy
+
         #daca vreau sa folosesc lstm trb sa impart
         #tensorul in batch-uri mult mai mici.
         #sau sa fac downsampling
 
         x = x.permute(2, 0, 1)
-        print(f'forma x inainte downsample {x.shape}')
-        x = self.downsample(x)
-        print(f'forma x inainte filtru {x.shape}')
+        #print(f'forma x inainte downsample {x.shape}')
+        x = self.downsample_layer_1(x)
+        #print(f'forma x inainte filtru {x.shape}')
         x = x.permute(1, 2, 0)
-        x = self.enc_filter(x)
-        skip = x
-        print(f'forma x dupa filtru {x.shape}')
+        x = self.enc_filter_layer_1(x)
+        skip_1 = x
+        #print(f'forma x dupa filtru {x.shape}')
 
-        x = self.dec_filter1(x)
-        x = torch.cat([x, skip], dim = 0)
-        x = self.dec_filter2(x)
+
+        #print(f'forma x inainte downsample l2{x.shape}')
         x = x.permute(2, 0, 1)
-        x = self.upsample(x)
+        x = self.downsample_layer_2(x)
+        #print(f'forma x inainte filtru l2{x.shape}')
+        x = x.permute(1, 2, 0)
+        x = self.enc_filter_layer_2(x)
+        skip_2 = x
+        #print(f'forma x dupa filtru l2{x.shape}')
+
+        #print(f'x inainte de LSTM: {x.shape}')
+        #x = x.permute(1, 2, 0)
+        # merge daca e inputul mai downsampled T_T
+        #x = self.LSTM(x)[0]
+        #x = x.permute(2, 0, 1)
+        #x = x.permute()
+        #print(f'x dupa de LSTM: {x.shape}')
+
+        x = self.dec_filter1_layer_2(x)
+        x = torch.cat([x, skip_2], dim=0)
+        #print(f'x shape dupa cat {x.shape}')
+        x = x.permute(2, 0, 1)
+        x = self.dec_filter2_layer_2(x)
+        x = self.upsample_layer_2(x)
+        x = x.permute(1, 2, 0)
+
+        x = self.dec_filter1_layer_1(x)
+        #print(f'x.shape (pt cat) {x.shape}')
+        #print(f'skip_1.shape (pt cat) {skip_1.shape}')
+        x = torch.cat([x, skip_1[:, :-1, :]], dim = 0)
+        #print(f'x shape dupa cat {x.shape}')
+        x = x.permute(2, 0, 1)
+        x = self.dec_filter2_layer_1(x)
+        x = self.upsample_layer_1(x)
+        #print(f'shape inainte de merge {x.shape}')
+        x = x.permute(0, 2, 1)
+        x = self.merge_into_stems(x)
+        x = x.permute(0, 2, 1)
         x = x.permute(1, 2, 0)
 
         #x = x.permute
 
-        print(f'x la iesire: {x.shape}')
+        #print(f'x la iesire: {x.shape}')
+        if x.shape[1] != 300032:
+            dif = 300032 -  x.shape[1]
+            x = torch.cat([x, torch.zeros(x.shape[0], dif, x.shape[2])], dim = 1)
         return x[:, :, :2]
 
 
@@ -185,6 +261,9 @@ torch.set_grad_enabled(True)
 sdr = SignalDistortionRatio
 
 t0 = time.perf_counter()
+
+print(mus[0].audio)
+
 for t in range(0, 1000):
     for song in range(len(mus)):
 
@@ -206,6 +285,9 @@ for t in range(0, 1000):
 
         loss = criterion(y_pred, y_true)
         if song % 10 == 9:
+            t1 = time.perf_counter()
+            print(f'dt = {t1 - t0}')
+            t0 = time.perf_counter()
             print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
 
 
@@ -220,8 +302,16 @@ for t in range(0, 1000):
                 'bass': y_pred_np[1, :, :],
                 'vocals': y_pred_np[2, :, :],
                 'other': y_pred_np[3, :, :]
-
             }
+
+            try:
+                write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
+                write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
+            except:
+                print("bruh")
             try:
                 scores = museval.eval_mus_track(
                     mus[song],
@@ -233,14 +323,7 @@ for t in range(0, 1000):
                 # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
                 # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
 
-                try:
-                    write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
-                except:
-                    print("bruh")
+
             except:
                 print("problema cu scorurile... womp womp!")
 
@@ -248,6 +331,3 @@ for t in range(0, 1000):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        t1 = time.perf_counter()
-        print(f'dt = {t1 - t0}')
-        t0 = time.perf_counter()

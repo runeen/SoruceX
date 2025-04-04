@@ -1,0 +1,13 @@
+Cred ca functioneaza partea de u-net.
+Trebuie sa ma gandesc cum scap de atrifactele care apar.
+
+Motive pentru concluzia mea:
+    1. Faptul ca avem aprox -2.4 pe metrica SAR (Signal Artifact Ratio).
+    2. In outputuri apare un boost imens pe la 22k hz si ma doare sa o aud.
+
+
+t- 33, song- 99, mse: 0.0037569054402410984, rmse:0.06129360032043393
+vocals          ==> SDR:  -0.001  SIR:  -5.899  ISR:  -0.001  SAR:  -2.527
+drums           ==> SDR:  -0.018  SIR:  -3.255  ISR:  -0.009  SAR:  -2.421
+bass            ==> SDR:  -0.009  SIR:  -1.792  ISR:  -0.009  SAR:  -2.423
+other           ==> SDR:  -0.012  SIR:   3.493  ISR:  -0.017  SAR:  -2.376
