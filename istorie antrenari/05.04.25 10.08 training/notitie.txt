@@ -1,0 +1,13 @@
+Arhitectura U-Net care se antreneaza!!!
+
+Am pus conectiunile skip inainte de downsampling si dupa upsampling
+si am scapat de problema cu frecventele din zona 22khz. (Nu stiu de ce nu am facut asa din prima)
+
+Avem SDR pozitiv pentru toate stem-urile!
+si un SIR negativ!
+
+t- 310, song- 99, mse: 0.0030278090853244066, rmse:0.05502553121346859
+vocals          ==> SDR:   0.889  SIR:   1.837  ISR:   0.962  SAR:   5.705
+drums           ==> SDR:   0.834  SIR:  -1.335  ISR:   0.995  SAR:  10.052
+bass            ==> SDR:   1.453  SIR:  -1.422  ISR:   1.704  SAR:  11.174
+other           ==> SDR:   0.337  SIR:  -6.588  ISR:   0.463  SAR:  10.206

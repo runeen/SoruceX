@@ -109,12 +109,16 @@ class AudioModel(torch.nn.Module):
         #   (conv se fac separat pe benzi (kernel_size[1] = 1) deci nu luam in considerare
         #   infomratiile stereo (macar nu relatia dintre ele))
 
+        self.preproc = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 20, (20, 2), padding='same', padding_mode='circular')
+        )
+
         self.downsample_layer_1 = torch.nn.Sequential(
-                torch.nn.Conv1d(3, 40, 4, 2), torch.nn.Mish()
+                torch.nn.Conv1d(20, 40, 2, 2)
         )
 
         self.downsample_layer_2 = torch.nn.Sequential(
-                torch.nn.Conv1d(30, 200, 4, 2), torch.nn.Mish()
+                torch.nn.Conv1d(30, 200, 2, 2)
         )
         self.enc_filter_layer_1 = torch.nn.Sequential(
             torch.nn.Conv2d(40, 60, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0)
@@ -126,11 +130,11 @@ class AudioModel(torch.nn.Module):
 
 
         self.upsample_layer_1 = torch.nn.Sequential(
-            torch.nn.ConvTranspose1d(30, 20, 4, 2), torch.nn.Mish(),
+            torch.nn.ConvTranspose1d(30, 20, 2, 2)
         )
 
         self.upsample_layer_2 = torch.nn.Sequential(
-            torch.nn.ConvTranspose1d(200, 30, 4, 2), torch.nn.Mish(),
+            torch.nn.ConvTranspose1d(200, 30, 2, 2)
         )
 
         #nu stiu ce sa pun in loc de linear aici dar cu relu sigur nu mergea ca ieseau doar
@@ -150,11 +154,11 @@ class AudioModel(torch.nn.Module):
         )
 
         self.dec_filter2_layer_1 = torch.nn.Sequential(
-            torch.nn.Conv1d(60, 60, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
+            torch.nn.Conv1d(30, 60, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
         )
 
         self.dec_filter2_layer_2 = torch.nn.Sequential(
-            torch.nn.Conv1d(400, 400, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
+            torch.nn.Conv1d(200, 400, 4, padding='same', padding_mode='circular'), torch.nn.GLU(1)
         )
 
         self.LSTM = torch.nn.Sequential(
@@ -170,6 +174,7 @@ class AudioModel(torch.nn.Module):
 
 
     def forward(self, x : torch.Tensor):
+        input_len = x.shape[0]
         x = x.permute(2, 0, 1)
 
         #yo vezi ca am scos canalele de mono si sl/sr cred ca sunt degeaba idk tho.
@@ -177,25 +182,30 @@ class AudioModel(torch.nn.Module):
 
         #daca vreau sa folosesc lstm trb sa impart
         #tensorul in batch-uri mult mai mici.
-        #sau sa fac downsampling
+        #sau sa fac downsampling"?
+        x = self.preproc(x)
 
         x = x.permute(2, 0, 1)
-        #print(f'forma x inainte downsample {x.shape}')
+        print(f'forma x inainte downsample {x.shape}')
+        if x.shape[2] % 2 != 0:
+            x = torch.cat([x, torch.zeros(x.shape[0],  x.shape[1], 1)], dim = 2)
+        skip_1 = x.clone()
         x = self.downsample_layer_1(x)
         #print(f'forma x inainte filtru {x.shape}')
         x = x.permute(1, 2, 0)
         x = self.enc_filter_layer_1(x)
-        skip_1 = x
         #print(f'forma x dupa filtru {x.shape}')
 
 
-        #print(f'forma x inainte downsample l2{x.shape}')
+        print(f'forma x inainte downsample l2{x.shape}')
         x = x.permute(2, 0, 1)
+        if x.shape[2] % 2 != 0:
+            x = torch.cat([x, torch.zeros(x.shape[0],  x.shape[1], 1)], dim = 2)
+        skip_2 = x.clone()
         x = self.downsample_layer_2(x)
         #print(f'forma x inainte filtru l2{x.shape}')
         x = x.permute(1, 2, 0)
         x = self.enc_filter_layer_2(x)
-        skip_2 = x
         #print(f'forma x dupa filtru l2{x.shape}')
 
         #print(f'x inainte de LSTM: {x.shape}')
@@ -207,21 +217,24 @@ class AudioModel(torch.nn.Module):
         #print(f'x dupa de LSTM: {x.shape}')
 
         x = self.dec_filter1_layer_2(x)
-        x = torch.cat([x, skip_2], dim=0)
         #print(f'x shape dupa cat {x.shape}')
         x = x.permute(2, 0, 1)
         x = self.dec_filter2_layer_2(x)
         x = self.upsample_layer_2(x)
+        x = x + skip_2
         x = x.permute(1, 2, 0)
 
         x = self.dec_filter1_layer_1(x)
         #print(f'x.shape (pt cat) {x.shape}')
         #print(f'skip_1.shape (pt cat) {skip_1.shape}')
-        x = torch.cat([x, skip_1[:, :-1, :]], dim = 0)
         #print(f'x shape dupa cat {x.shape}')
         x = x.permute(2, 0, 1)
         x = self.dec_filter2_layer_1(x)
         x = self.upsample_layer_1(x)
+        #x = x.permute(1, 0, 2)
+        print(x.shape)
+        print(skip_1.shape)
+        x = x + skip_1
         #print(f'shape inainte de merge {x.shape}')
         x = x.permute(0, 2, 1)
         x = self.merge_into_stems(x)
@@ -231,9 +244,7 @@ class AudioModel(torch.nn.Module):
         #x = x.permute
 
         #print(f'x la iesire: {x.shape}')
-        if x.shape[1] != 300032:
-            dif = 300032 -  x.shape[1]
-            x = torch.cat([x, torch.zeros(x.shape[0], dif, x.shape[2])], dim = 1)
+
         return x[:, :, :2]
 
 
