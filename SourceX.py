@@ -20,7 +20,6 @@ from scipy.signal import butter, filtfilt
 import scipy.io
 from torch import newaxis
 
-import incarca_audio
 
 mus = musdb.DB(download=True)
 
@@ -183,7 +182,9 @@ class AudioModel(torch.nn.Module):
         #daca vreau sa folosesc lstm trb sa impart
         #tensorul in batch-uri mult mai mici.
         #sau sa fac downsampling"?
+        print(x.max().data, x.min().data)
         x = self.preproc(x)
+        print(x.max().data, x.min().data)
 
         x = x.permute(2, 0, 1)
         print(f'forma x inainte downsample {x.shape}')
@@ -235,6 +236,7 @@ class AudioModel(torch.nn.Module):
         print(x.shape)
         print(skip_1.shape)
         x = x + skip_1
+
         #print(f'shape inainte de merge {x.shape}')
         x = x.permute(0, 2, 1)
         x = self.merge_into_stems(x)
