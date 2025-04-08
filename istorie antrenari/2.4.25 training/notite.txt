@@ -1,0 +1,3 @@
+aparent trebuia sa fac x = x + skip
+in loc de x = torch.cat([x, skip])
+ups
