@@ -15,13 +15,14 @@ import tqdm
 import museval
 import torchmetrics
 from scipy.io.wavfile import write
+import gc
+
 
 from scipy.signal import butter, filtfilt
 import scipy.io
 from torch import newaxis
 
 
-mus = musdb.DB(download=True)
 
 def center_trim(tensor, reference):
     #aproape la fel ca in demucs...
@@ -103,70 +104,72 @@ class AudioModel(torch.nn.Module):
     def __init__(self, tanh_like, mish_like, relu_like):
         super().__init__()
 
-        #encoders:
+        # --- encoders:
         #layer 1
-        self.enc_f_1 = torch.nn.Sequential(torch.nn.Conv2d(3, 30, (20, 2), padding='same', padding_mode='circular'), tanh_like)
-        self.enc_dwn_1 =  torch.nn.Sequential(torch.nn.Conv1d(30, 30, 2, stride=2), tanh_like)
+        self.enc_f_1 = torch.nn.Sequential(torch.nn.Conv2d(3, 30, (2, 2), padding='same', padding_mode='circular'), tanh_like)
+        self.enc_dwn_1 =  torch.nn.Sequential(torch.nn.Conv1d(30, 60, 4, stride=4), tanh_like)
 
         #layer 2
-        self.enc_f_2 = torch.nn.Sequential(torch.nn.Conv2d(30, 60, (20, 2), padding='same', padding_mode='circular'), mish_like)
-        self.enc_dwn_2 = torch.nn.Sequential(torch.nn.Conv1d(60, 60, 2, stride=2), mish_like)
+        self.enc_f_2 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (2, 2), padding='same', padding_mode='circular'), mish_like)
+        self.enc_dwn_2 = torch.nn.Sequential(torch.nn.Conv1d(60, 100, 4, stride=4), mish_like)
 
         #layer 3
-        self.enc_f_3 = torch.nn.Sequential(torch.nn.Conv2d(60, 100, (20, 2), padding='same', padding_mode='circular'), mish_like)
-        self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(100, 100, 3, stride=3), mish_like)
+        self.enc_f_3 = torch.nn.Sequential(torch.nn.Conv2d(100, 100, (2, 2), padding='same', padding_mode='circular'), mish_like)
+        self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(100, 300, 4, stride=4), mish_like)
 
         #layer 4
-        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(100, 300, (20, 2), padding='same', padding_mode='circular'), mish_like)
-        self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(300, 300, 4, stride=4), relu_like)
-
+        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(300, 300, (2, 2), padding='same', padding_mode='circular'), mish_like)
+        self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(300, 600, 4, stride=4), relu_like)
 
         #layer 5
-        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(300, 600, (20, 2), padding='same', padding_mode='circular'), relu_like)
-        self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(600, 600, 4, stride=4), relu_like)
+        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (2, 2), padding='same', padding_mode='circular'), relu_like)
+        self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(600, 900, 4, stride=4), relu_like)
 
+        self.blstm = torch.nn.LSTM(900, 900, bidirectional=True, num_layers=3)
+        self.blstm_linear = torch.nn.Linear(1800, 600)
 
-        ## Nu merge asa draga mai rescrie!
+        # --- decoders:
         #layer 5
-        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (20, 2), padding='same', padding_mode='circular'), relu_like)
+        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (2, 2), padding='same', padding_mode='circular'), relu_like)
         self.dec_ups_5 = torch.nn.Sequential(torch.nn.ConvTranspose1d(600, 600, 4, 4), relu_like)
-        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 600, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 600, (2, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
 
         #layer 4
-        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(300, 300, (20, 2), padding='same', padding_mode='circular'), relu_like)
+        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(300, 300, (2, 5), padding='same', padding_mode='circular'), relu_like)
         self.dec_ups_4 = torch.nn.Sequential(torch.nn.ConvTranspose1d(300, 300, 4, 4), relu_like)
-        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 200, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 200, (2, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
 
 
         #layer 3
-        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(100, 100, (20, 2), padding='same', padding_mode='circular'), relu_like)
-        self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(100, 100, 3, 3), relu_like)
-        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 120, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(100, 100, (2, 2), padding='same', padding_mode='circular'), relu_like)
+        self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(100, 100, 4, 4), relu_like)
+        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 120, (2, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
 
 
         #layer 2
-        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (20, 2), padding='same', padding_mode='circular'), relu_like)
-        self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 2, 2), relu_like)
-        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 60, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (2, 2), padding='same', padding_mode='circular'), relu_like)
+        self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 4, 4), relu_like)
+        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 60, (2, 2), padding='same', padding_mode = 'circular'), torch.nn.GLU(0))
 
         #layer 1
-        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(30, 30, (20, 2), padding='same', padding_mode='circular'), tanh_like)
-        self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(30, 30, 2, 2), tanh_like)
-        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 8, (20, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(30, 30, (2, 2), padding='same', padding_mode='circular'), tanh_like)
+        self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(30, 30, 4, 4), tanh_like)
+        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 8, (2, 2), padding='same', padding_mode='circular'), torch.nn.GLU(0))
+
 
 
     def pad_x(self, x :torch.Tensor, stride: int):
         #print(x.shape)
         if (x.shape[2]) % stride != 0:
             delta = stride - (x.shape[2] % stride)
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], delta + stride))], dim=2)
+            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], delta + stride), device='cpu')], dim=2)
         else:
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], stride))], dim=2)
-
+            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], stride), device='cpu')], dim=2)
         return x
 
     def forward(self, x : torch.Tensor):
         skip = []
+        #print(x.shape)
         #x intra ca (T, C, B)
         #print(x.shape)
 
@@ -178,8 +181,10 @@ class AudioModel(torch.nn.Module):
 
         #pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        skip.append(x.clone())
-        x = self.pad_x(x, 2)
+        x = x.to('cpu')
+        skip.append(x)
+        x = self.pad_x(x, 4)
+        x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_1(x)
         #print(f'x in = {x.shape}')
@@ -194,8 +199,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        skip.append(x.clone())
-        x = self.pad_x(x, 2)
+        x = x.to('cpu')
+        skip.append(x)
+        x = self.pad_x(x, 4)
+        x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_2(x)
         #print(f'x out = {x.shape}')
@@ -210,8 +217,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        skip.append(x.clone())
-        x = self.pad_x(x, 3)
+        x = x.to('cpu')
+        skip.append(x)
+        x = self.pad_x(x, 4)
+        x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_3(x)
         #print(f'x out = {x.shape}')
@@ -220,14 +229,15 @@ class AudioModel(torch.nn.Module):
         x = x.permute(1, 2, 0)
 
 
-
         # enc layer 4: -------------------------------------------------------------------
         x = self.enc_f_4(x)
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        skip.append(x.clone())
+        x = x.to('cpu')
+        skip.append(x)
         x = self.pad_x(x, 4)
+        x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_4(x)
         #print(f'x out = {x.shape}')
@@ -236,21 +246,29 @@ class AudioModel(torch.nn.Module):
         x = x.permute(1, 2, 0)
 
 
-
         # enc layer 5: -------------------------------------------------------------------
         x = self.enc_f_5(x)
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        skip.append(x.clone())
+        x = x.to('cpu')
+        skip.append(x)
         x = self.pad_x(x, 4)
+        x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_5(x)
         #print(f'x out = {x.shape}')
 
-        # pentru urmatorul Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
+        #blstm -----------------------------------------------------------------------
+        # pentru blstm vrem (T, C, B) (Permutatie (C, B, T) -> (T, C, B))
+        x = x.permute(2, 0, 1)
 
+        x = self.blstm(x)[0]
+
+        x = self.blstm_linear(x)
+
+        #pentru urmatorul filtru vrem (B, T, C) (Permutatie (T, C, B) -> (B, T, C))
+        x = x.permute(2, 0, 1)
 
 
 
@@ -261,11 +279,14 @@ class AudioModel(torch.nn.Module):
         #print(f'x in = {x.shape}')
         x = self.dec_ups_5(x)
         #print(f'x out = {x.shape}')
+        x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
+        x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
+        gc.collect()
         x = self.dec_f2_5(x)
 
 
@@ -278,11 +299,14 @@ class AudioModel(torch.nn.Module):
         x = self.dec_ups_4(x)
         #print(f'x out = {x.shape}')
         #print(x.shape)
+        x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
+        x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
+        gc.collect()
         x = self.dec_f2_4(x)
 
 
@@ -293,11 +317,14 @@ class AudioModel(torch.nn.Module):
 
         x = self.dec_ups_3(x)
         #print(x.shape)
+        x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
+        x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
+        gc.collect()
         x = self.dec_f2_3(x)
 
 
@@ -308,12 +335,15 @@ class AudioModel(torch.nn.Module):
 
         x = self.dec_ups_2(x)
         #print(x.shape)
+        x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
+        x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
+        gc.collect()
         x = x.permute(1, 2, 0)
-
         x = self.dec_f2_2(x)
+
 
 
         #dec layer 1: -----------------------------------------------------------------
@@ -321,14 +351,20 @@ class AudioModel(torch.nn.Module):
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
 
+        gc.collect()
         x = self.dec_ups_1(x)
         #print(x.shape)
+        x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
+        x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
+        gc.collect()
         x = self.dec_f2_1(x)
+
+        del skip_tensor
 
         return x
 
@@ -341,54 +377,99 @@ print(torch.cuda.is_available())
 torch.set_default_device("cuda")
 
 model = AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
+#original 2e-5
+learning_rate = 2e-4
+optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
+
+t = 0
+try:
+    checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    t = checkpoint['t']
+    loss = checkpoint['loss']
+
+    model.train()
+    print('am incarcat model.model')
+except:
+    print('nu am incarcat nici-un state dict')
 
 criterion = torch.nn.MSELoss(reduction='mean')
 criterion.requires_grad_(True)
+mus = musdb.DB(subsets="train", split='train')
+mus_valid = musdb.DB(subsets="train", split='valid')
 
 print(f'shape musdb {mus}')
 
-#original 2e-5
-learning_rate = 2e-4
 #original era Adam aici
-optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
 
 torch.set_grad_enabled(True)
 
 sdr = SignalDistortionRatio
 
 t0 = time.perf_counter()
-
 print(mus[0].audio)
 
-for t in range(0, 1000):
+debug = True
+while t < 1000:
+    t += 1
     for song in range(len(mus)):
-
+        loss = None
         audio_original = mus[song].audio
-        x_true = torch.from_numpy(genereaza_tensor_din_stereo(audio_original))
-        audio_original = torch.from_numpy(audio_original).to(device= 'cuda', dtype=torch.float32)
+        stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
+        #print(audio_original.shape)
 
-        x_true = x_true.to(torch.float32)
-        x_true = x_true.to(device = "cuda")
+        #Adauga ceva sa imparta inputul in bucati mici (30 secunde idk)
+        # da nu vreau T_T
 
-        # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-        # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-        y_true = torch.from_numpy(mus[song].stems[(1, 2, 4, 3), :, :])
-        y_true = y_true.to(torch.float32)
-        y_true = y_true.to(device = "cuda")
+        # genereaza batches
+        x_batches = []
+        y_true_batches = []
+        total_batched = 0
+        batch_size = 1323000 # 30 secunde
+        while total_batched < audio_original.shape[0]:
+            if audio_original.shape[0] - batch_size >= total_batched:
+                x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
+                y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
+                total_batched += batch_size
+            else:
+                x_batches.append(audio_original[total_batched: , :])
+                y_true_batches.append(stems_original[:, total_batched:, :])
+                break
 
-        y_pred = model(x_true)
-        #y_pred = torch.cat((y_pred, (audio_original[:, :] - torch.sum(y_pred, dim = 0))[newaxis, ...]), dim = 0)
+        y_pred = None
+        for x_batch, y_batch in zip(x_batches, y_true_batches):
 
-        loss = criterion(y_pred, y_true)
-        if song % 10 == 9:
-            t1 = time.perf_counter()
-            print(f'dt = {t1 - t0}')
-            t0 = time.perf_counter()
-            print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
+            x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_batch))
+            x_true = x_true.to(torch.float32)
+            x_true = x_true.to(device = "cuda")
+            output = model(x_true)
+
+            y_batch = torch.from_numpy(y_batch)
+            y_batch = y_batch.to(torch.float32)
+            y_batch = y_batch.to(device = 'cuda')
+
+            loss = criterion(output, y_batch)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if song % 10 == 9 or debug:
+                t1 = time.perf_counter()
+                print(f'dt = {t1 - t0}')
+                t0 = time.perf_counter()
+                print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
+
+            del x_true
+            output = output.to(device = 'cpu')
+            if y_pred == None:
+                y_pred = output
+            else:
+                y_pred = torch.cat([y_pred, output], dim = 1)
 
 
-        if song % 200 == 99:
-            y_pred = y_pred.to(device="cpu")
+
+        if song % 200 == 78:
             y_pred_np = y_pred.detach().numpy()
 
             # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
@@ -401,6 +482,8 @@ for t in range(0, 1000):
             }
 
             try:
+                # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+                # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
                 write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
                 write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
                 write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
@@ -415,15 +498,15 @@ for t in range(0, 1000):
                 )
                 print(scores)
 
-
-                # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-                # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-
-
             except:
                 print("problema cu scorurile... womp womp!")
 
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            try:
+                torch.save({
+                't': t,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss
+                }, f'istorie antrenari/azi/model.model')
+            except:
+                print('nu am putut salva modelul')
