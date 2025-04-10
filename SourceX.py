@@ -16,11 +16,12 @@ import museval
 import torchmetrics
 from scipy.io.wavfile import write
 import gc
-
+from tqdm import tqdm
 
 from scipy.signal import butter, filtfilt
 import scipy.io
 from torch import newaxis
+import sys
 
 
 
@@ -37,25 +38,24 @@ def genereaza_strat_banda(tensor, filter):
     #print(f'Y: {y}')
     return y
 
-def genereaza_tensor_din_stereo(tensor):
+def genereaza_tensor_din_stereo(tensor, fs = 44100):
     '''
     mono = np.average(tensor, 1).reshape(-1, 1)
     #print(f'MONO SHAPE: {mono.shape}')
 
-    output = np.hstack([tensor, mono])
-    #print(f'TENSOR: \n{output}\n\tSHAPE: {output.shape}')
+    y_bar = np.hstack([tensor, mono])
+    #print(f'TENSOR: \n{y_bar}\n\tSHAPE: {y_bar.shape}')
 
     separated = tensor - mono
 
-    output = np.hstack([output, separated])
-    #print(f'TENSOR: \n{output}\n\tSHAPE: {output.shape}')
+    y_bar = np.hstack([y_bar, separated])
+    #print(f'TENSOR: \n{y_bar}\n\tSHAPE: {y_bar.shape}')
     '''
     output = tensor
     output_3_axe = output[..., np.newaxis]
 
 
     cutoff = 400
-    fs = mus[0].rate
 
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
@@ -65,14 +65,12 @@ def genereaza_tensor_din_stereo(tensor):
 
 
     cutoff = np.array([400, 1900])
-    fs = mus[0].rate
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(5, normal_cutoff, btype='band', analog=False)
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
     cutoff = 1900
-    fs = mus[0].rate
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(5, normal_cutoff, btype='high', analog=False)
@@ -181,10 +179,10 @@ class AudioModel(torch.nn.Module):
 
         #pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip.append(x)
         x = self.pad_x(x, 4)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_1(x)
         #print(f'x in = {x.shape}')
@@ -199,10 +197,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip.append(x)
         x = self.pad_x(x, 4)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_2(x)
         #print(f'x out = {x.shape}')
@@ -217,10 +215,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip.append(x)
         x = self.pad_x(x, 4)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_3(x)
         #print(f'x out = {x.shape}')
@@ -234,10 +232,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip.append(x)
         x = self.pad_x(x, 4)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_4(x)
         #print(f'x out = {x.shape}')
@@ -251,10 +249,10 @@ class AudioModel(torch.nn.Module):
 
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip.append(x)
         x = self.pad_x(x, 4)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         #print(f'x in = {x.shape}')
         x = self.enc_dwn_5(x)
         #print(f'x out = {x.shape}')
@@ -279,10 +277,10 @@ class AudioModel(torch.nn.Module):
         #print(f'x in = {x.shape}')
         x = self.dec_ups_5(x)
         #print(f'x out = {x.shape}')
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
@@ -299,10 +297,10 @@ class AudioModel(torch.nn.Module):
         x = self.dec_ups_4(x)
         #print(f'x out = {x.shape}')
         #print(x.shape)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
@@ -317,10 +315,10 @@ class AudioModel(torch.nn.Module):
 
         x = self.dec_ups_3(x)
         #print(x.shape)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
@@ -335,10 +333,10 @@ class AudioModel(torch.nn.Module):
 
         x = self.dec_ups_2(x)
         #print(x.shape)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         gc.collect()
         x = x.permute(1, 2, 0)
@@ -354,10 +352,10 @@ class AudioModel(torch.nn.Module):
         gc.collect()
         x = self.dec_ups_1(x)
         #print(x.shape)
-        x = x.to('cpu')
+        #x = x.to('cpu')
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim = 1)
-        x = x.to('cuda')
+        #x = x.to('cuda')
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
@@ -369,144 +367,164 @@ class AudioModel(torch.nn.Module):
         return x
 
 
+if __name__ == '__main__':
 
+    dtype = torch.float32
+    device = torch.device("cuda")
+    # print(torch.cuda.is_available())
+    torch.set_default_device("cuda")
+    model = AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
+    #original 2e-5
+    learning_rate = 2e-4
+    optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
 
-dtype = torch.float32
-device = torch.device("cuda")
-print(torch.cuda.is_available())
-torch.set_default_device("cuda")
+    t = 0
+    try:
+        checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        t = checkpoint['t']
 
-model = AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
-#original 2e-5
-learning_rate = 2e-4
-optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
+        model.train()
+        print('am incarcat model.model')
+    except:
+        print('nu am incarcat nici-un state dict')
 
-t = 0
-try:
-    checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    t = checkpoint['t']
-    loss = checkpoint['loss']
+    criterion = torch.nn.L1Loss()
+    criterion.requires_grad_(True)
+    mus = musdb.DB(subsets="train", split='train')
+    mus_valid = musdb.DB(subsets="train", split='valid')
 
-    model.train()
-    print('am incarcat model.model')
-except:
-    print('nu am incarcat nici-un state dict')
+    #print(f'shape musdb {mus}')
 
-criterion = torch.nn.MSELoss(reduction='mean')
-criterion.requires_grad_(True)
-mus = musdb.DB(subsets="train", split='train')
-mus_valid = musdb.DB(subsets="train", split='valid')
+    #original era Adam aici
 
-print(f'shape musdb {mus}')
+    torch.set_grad_enabled(True)
 
-#original era Adam aici
+    sdr = SignalDistortionRatio
 
-torch.set_grad_enabled(True)
+    t0 = time.perf_counter()
+    #print(mus[0].audio)
 
-sdr = SignalDistortionRatio
+    debug = False
+    while t < 1000:
+        random.shuffle(mus.tracks)
 
-t0 = time.perf_counter()
-print(mus[0].audio)
+        for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix= {'t': t}):
+            audio_original = mus[song].audio
+            stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
+            #print(audio_original.shape)
 
-debug = True
-while t < 1000:
-    t += 1
-    for song in range(len(mus)):
-        loss = None
-        audio_original = mus[song].audio
-        stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
-        #print(audio_original.shape)
+            #Adauga ceva sa imparta inputul in bucati mici (30 secunde idk)
+            # da nu vreau T_T
 
-        #Adauga ceva sa imparta inputul in bucati mici (30 secunde idk)
-        # da nu vreau T_T
+            # genereaza batches
+            # eu sunt cel care antreneaza pe batch-uri si nu are leak-uri de memorie
+            x_batches = []
+            y_true_batches = []
+            total_batched = 0
+            batch_size = random.randint(132300, 573300) # 3 - 13 secunde
+            while total_batched < audio_original.shape[0]:
+                if audio_original.shape[0] - batch_size >= total_batched:
+                    x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
+                    y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
+                    total_batched += batch_size
+                else:
+                    x_batches.append(audio_original[total_batched: , :])
+                    y_true_batches.append(stems_original[:, total_batched:, :])
+                    break
 
-        # genereaza batches
-        x_batches = []
-        y_true_batches = []
-        total_batched = 0
-        batch_size = 1323000 # 30 secunde
-        while total_batched < audio_original.shape[0]:
-            if audio_original.shape[0] - batch_size >= total_batched:
-                x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
-                y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
-                total_batched += batch_size
-            else:
-                x_batches.append(audio_original[total_batched: , :])
-                y_true_batches.append(stems_original[:, total_batched:, :])
-                break
+            #y_pred = None
+            for x_batch, y_batch in zip(x_batches, y_true_batches):
 
-        y_pred = None
-        for x_batch, y_batch in zip(x_batches, y_true_batches):
+                x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_batch))
+                x_true = x_true.to(torch.float32)
+                x_true = x_true.to(device = "cuda")
+                y_bar = model(x_true)
 
-            x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_batch))
-            x_true = x_true.to(torch.float32)
-            x_true = x_true.to(device = "cuda")
-            output = model(x_true)
+                y_batch = torch.from_numpy(y_batch)
+                y_batch = y_batch.to(torch.float32)
+                y_batch = y_batch.to(device = 'cuda')
 
-            y_batch = torch.from_numpy(y_batch)
-            y_batch = y_batch.to(torch.float32)
-            y_batch = y_batch.to(device = 'cuda')
-
-            loss = criterion(output, y_batch)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            if song % 10 == 9 or debug:
-                t1 = time.perf_counter()
-                print(f'dt = {t1 - t0}')
-                t0 = time.perf_counter()
-                print(f't- {t}, song- {song}, mse: {loss.item()}, rmse:{math.sqrt(loss.item())}')
-
-            del x_true
-            output = output.to(device = 'cpu')
-            if y_pred == None:
-                y_pred = output
-            else:
-                y_pred = torch.cat([y_pred, output], dim = 1)
+                loss = criterion(y_bar, y_batch)
+                y_bar.detach()
+                del y_bar
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
 
 
-        if song % 200 == 78:
-            y_pred_np = y_pred.detach().numpy()
+                del y_batch
+                del x_true
 
-            # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-            # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-            estimates = {
-                'drums': y_pred_np[0, :, :],
-                'bass': y_pred_np[1, :, :],
-                'vocals': y_pred_np[2, :, :],
-                'other': y_pred_np[3, :, :]
-            }
+                gc.collect()
+
+                if song % 10 == 9 or debug:
+                    t1 = time.perf_counter()
+                    #tqdm.write(f'dt = {t1 - t0}')
+                    t0 = time.perf_counter()
+                    tqdm.write(f't- {t}, song- {song}, mae: {loss.item()}')
+
+                #daca nu fac evaluari nu am nevoide de y_bar
+                '''
+                y_bar = y_bar.to(device = 'cpu')
+                if y_pred == None:
+                    y_pred = y_bar
+                else:
+                    y_pred = torch.cat([y_pred, y_bar], dim = 1)
+
+                del y_bar
+                '''
+
+            del x_batches
+            del y_true_batches
+
+            torch.cuda.empty_cache()
 
             try:
+                tqdm.write('scriu model.model nu ma inchide')
+                torch.save({
+                    't': t,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                }, f'istorie antrenari/azi/model.model')
+                tqdm.write('gata')
+            except:
+                tqdm.write('nu am putut salva modelul')
+
+
+            #scot partea asta pt ca ar trb sa fie in eval oricum
+            '''
+            if song % 200 == 0:
+                y_pred_np = y_pred.detach().numpy()
+    
                 # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
                 # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-                write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(np.int16))
-                write(f'istorie antrenari/azi/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(np.int16))
-            except:
-                print("bruh")
-            try:
-                scores = museval.eval_mus_track(
-                    mus[song],
-                    estimates
-                )
-                print(scores)
-
-            except:
-                print("problema cu scorurile... womp womp!")
-
-            try:
-                torch.save({
-                't': t,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss
-                }, f'istorie antrenari/azi/model.model')
-            except:
-                print('nu am putut salva modelul')
+                estimates = {
+                    'drums': y_pred_np[0, :, :],
+                    'bass': y_pred_np[1, :, :],
+                    'vocals': y_pred_np[2, :, :],
+                    'other': y_pred_np[3, :, :]
+                }
+    
+                try:
+                    # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
+                    # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
+                    write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/drums.wav', 44100, (stems_original[0, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/bass.wav', 44100, (stems_original[1, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/vocals.wav', 44100, (stems_original[2, :, :] * 32767).astype(np.int16))
+                    write(f'istorie antrenari/azi/other.wav', 44100, (stems_original[3, :, :] * 32767).astype(np.int16))
+                except:
+                    tqdm.write("bruh")
+                try:
+                    scores = museval.eval_mus_track(
+                        mus[song],
+                        estimates
+                    )
+                    tqdm.write(f'{scores}')
+                except:
+                    tqdm.write("problema cu scorurile... womp womp!")
+            '''
+        t += 1
