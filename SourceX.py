@@ -415,7 +415,7 @@ if __name__ == '__main__':
             audio_original = mus[song].audio
             stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
 
-            tqdm.write(str(stems_original.shape))
+            #tqdm.write(str(stems_original.shape))
 
             #augement
 
@@ -426,23 +426,23 @@ if __name__ == '__main__':
 
             # genereaza batches
             # eu sunt cel care antreneaza pe batch-uri si nu are leak-uri de memorie
-            x_batches = []
+            #x_batches = []
             y_true_batches = []
             total_batched = 0
             # pare sa mearga (trb sa incerc si cu batch_size-uri mai mari)
             while total_batched < audio_original.shape[0]:
                 batch_size = random.randint(132300, 573300) # 3 - 13 secunde
                 if audio_original.shape[0] - batch_size >= total_batched:
-                    x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
+                    #x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
                     y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
                     total_batched += batch_size
                 else:
-                    x_batches.append(audio_original[total_batched: , :])
+                    #x_batches.append(audio_original[total_batched: , :])
                     y_true_batches.append(stems_original[:, total_batched:, :])
                     break
 
             #y_pred = None
-            for x_batch, y_batch in zip(x_batches, y_true_batches):
+            for y_batch in y_true_batches:
 
                 #trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
 
@@ -453,7 +453,7 @@ if __name__ == '__main__':
 
                 x_true = x_true.detach().numpy()
 
-                x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_batch))
+                x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_true))
                 x_true = x_true.to(torch.float32)
                 y_batch = y_batch.to(torch.float32)
 
@@ -496,7 +496,6 @@ if __name__ == '__main__':
                 del y_bar
                 '''
 
-            del x_batches
             del y_true_batches
 
             torch.cuda.empty_cache()
