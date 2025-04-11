@@ -15,6 +15,7 @@ import tqdm
 import museval
 import torchmetrics
 from scipy.io.wavfile import write
+import augment
 import gc
 from tqdm import tqdm
 
@@ -160,9 +161,9 @@ class AudioModel(torch.nn.Module):
         #print(x.shape)
         if (x.shape[2]) % stride != 0:
             delta = stride - (x.shape[2] % stride)
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], delta + stride), device='cpu')], dim=2)
+            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], delta + stride), device='cuda')], dim=2)
         else:
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], stride), device='cpu')], dim=2)
+            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], stride), device='cuda')], dim=2)
         return x
 
     def forward(self, x : torch.Tensor):
@@ -413,6 +414,11 @@ if __name__ == '__main__':
         for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix= {'t': t}):
             audio_original = mus[song].audio
             stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
+
+            tqdm.write(str(stems_original.shape))
+
+            #augement
+
             #print(audio_original.shape)
 
             #Adauga ceva sa imparta inputul in bucati mici (30 secunde idk)
@@ -423,8 +429,9 @@ if __name__ == '__main__':
             x_batches = []
             y_true_batches = []
             total_batched = 0
-            batch_size = random.randint(132300, 573300) # 3 - 13 secunde
+            # pare sa mearga (trb sa incerc si cu batch_size-uri mai mari)
             while total_batched < audio_original.shape[0]:
+                batch_size = random.randint(132300, 573300) # 3 - 13 secunde
                 if audio_original.shape[0] - batch_size >= total_batched:
                     x_batches.append(audio_original[total_batched: total_batched + batch_size, :])
                     y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
@@ -437,13 +444,25 @@ if __name__ == '__main__':
             #y_pred = None
             for x_batch, y_batch in zip(x_batches, y_true_batches):
 
+                #trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
+
+
+                aug = augment.Augment(torch.tensor(y_batch, device='cpu'))
+
+                y_batch, x_true = aug()
+
+                x_true = x_true.detach().numpy()
+
                 x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_batch))
                 x_true = x_true.to(torch.float32)
+                y_batch = y_batch.to(torch.float32)
+
+
+
                 x_true = x_true.to(device = "cuda")
+
                 y_bar = model(x_true)
 
-                y_batch = torch.from_numpy(y_batch)
-                y_batch = y_batch.to(torch.float32)
                 y_batch = y_batch.to(device = 'cuda')
 
                 loss = criterion(y_bar, y_batch)
