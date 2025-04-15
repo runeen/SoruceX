@@ -22,7 +22,7 @@ if __name__ == '__main__':
         except:
             print('nu am incarcat nici-un state dict')
 
-        rate, input_file = read(f'input/input.wav')
+        rate, input_file = read(f'input/Little Sister.wav')
         input_file = input_file / numpy.iinfo(numpy.int16).max
         print(input_file)
 

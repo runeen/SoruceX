@@ -9,24 +9,24 @@ import sys
 import gc
 
 if __name__ == '__main__':
-    mus = musdb.DB(subsets="train", split='valid')
-    for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout):
-        with ((torch.no_grad())):
-            dtype = torch.float32
-            device = torch.device("cuda")
-            #print(torch.cuda.is_available())
-            torch.set_default_device("cuda")
-            model = SourceX.AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
-            model.to(device='cuda')
-            try:
-                checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
-                model.load_state_dict(checkpoint['model_state_dict'])
+    mus = musdb.DB(subsets="test")
+    with ((torch.no_grad())):
+        dtype = torch.float32
+        device = torch.device("cuda")
+        # print(torch.cuda.is_available())
+        torch.set_default_device("cuda")
+        model = SourceX.AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
+        model.to(device='cuda')
+        try:
+            checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+            model.load_state_dict(checkpoint['model_state_dict'])
 
-                model.eval()
-                tqdm.write('am incarcat model.model')
-            except:
-                tqdm.write('nu am incarcat nici-un state dict')
-
+            model.eval()
+            tqdm.write('am incarcat model.model')
+        except:
+            tqdm.write('nu am incarcat nici-un state dict')
+        for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout):
+            tqdm.write(f'song: {song}')
             rate = 44100
             input_file = mus[song].audio
             stems = mus[song].stems[(1, 2, 4, 3), :, :]
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
             y_pred = None
             for x_batch in x_batches:
-                tqdm.write('started batch')
+                #tqdm.write('started batch')
                 x_true = torch.from_numpy(SourceX.genereaza_tensor_din_stereo(x_batch))
                 x_true = x_true.to(torch.float32)
                 x_true = x_true.to(device="cuda")
@@ -95,7 +95,8 @@ if __name__ == '__main__':
                 tqdm.write("problema cu scorurile... womp womp!")
 
             del y_pred
-            del model
 
             gc.collect()
             torch.cuda.empty_cache()
+
+del model

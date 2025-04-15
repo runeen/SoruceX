@@ -376,8 +376,10 @@ if __name__ == '__main__':
     torch.set_default_device("cuda")
     model = AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
     #original 2e-5
-    learning_rate = 2e-4
-    optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate, momentum=0.9)
+    #l am scazut dupa appx 26 de epoci
+    #de la 2e-4
+    learning_rate = 2e-5
+    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
 
     t = 0
     try:
@@ -393,8 +395,7 @@ if __name__ == '__main__':
 
     criterion = torch.nn.L1Loss()
     criterion.requires_grad_(True)
-    mus = musdb.DB(subsets="train", split='train')
-    mus_valid = musdb.DB(subsets="train", split='valid')
+    mus = musdb.DB(subsets="train")
 
     #print(f'shape musdb {mus}')
 
@@ -411,18 +412,9 @@ if __name__ == '__main__':
     while t < 1000:
         random.shuffle(mus.tracks)
 
-        for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix= {'t': t}):
+        for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix= {'t': t} ):
             audio_original = mus[song].audio
             stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
-
-            #tqdm.write(str(stems_original.shape))
-
-            #augement
-
-            #print(audio_original.shape)
-
-            #Adauga ceva sa imparta inputul in bucati mici (30 secunde idk)
-            # da nu vreau T_T
 
             # genereaza batches
             # eu sunt cel care antreneaza pe batch-uri si nu are leak-uri de memorie
@@ -445,12 +437,8 @@ if __name__ == '__main__':
             for y_batch in y_true_batches:
 
                 #trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
-
-
                 aug = augment.Augment(torch.tensor(y_batch, device='cpu'))
-
                 y_batch, x_true = aug()
-
                 x_true = x_true.detach().numpy()
 
                 x_true = torch.from_numpy(genereaza_tensor_din_stereo(x_true))
@@ -460,9 +448,7 @@ if __name__ == '__main__':
 
 
                 x_true = x_true.to(device = "cuda")
-
                 y_bar = model(x_true)
-
                 y_batch = y_batch.to(device = 'cuda')
 
                 loss = criterion(y_bar, y_batch)
@@ -511,38 +497,4 @@ if __name__ == '__main__':
             except:
                 tqdm.write('nu am putut salva modelul')
 
-
-            #scot partea asta pt ca ar trb sa fie in eval oricum
-            '''
-            if song % 200 == 0:
-                y_pred_np = y_pred.detach().numpy()
-    
-                # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-                # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-                estimates = {
-                    'drums': y_pred_np[0, :, :],
-                    'bass': y_pred_np[1, :, :],
-                    'vocals': y_pred_np[2, :, :],
-                    'other': y_pred_np[3, :, :]
-                }
-    
-                try:
-                    # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
-                    # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
-                    write(f'istorie antrenari/azi/original.wav', 44100, (mus[song].audio * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/drums.wav', 44100, (stems_original[0, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/bass.wav', 44100, (stems_original[1, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/vocals.wav', 44100, (stems_original[2, :, :] * 32767).astype(np.int16))
-                    write(f'istorie antrenari/azi/other.wav', 44100, (stems_original[3, :, :] * 32767).astype(np.int16))
-                except:
-                    tqdm.write("bruh")
-                try:
-                    scores = museval.eval_mus_track(
-                        mus[song],
-                        estimates
-                    )
-                    tqdm.write(f'{scores}')
-                except:
-                    tqdm.write("problema cu scorurile... womp womp!")
-            '''
         t += 1

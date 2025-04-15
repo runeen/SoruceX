@@ -100,7 +100,7 @@ class Augment(torch.nn.Module):
     def forward(self):
         self.y_original = copy.deepcopy(self.y_true)
 
-        if random.uniform(0, 11) > 10 :
+        if random.uniform(0, 6) > 5 :
             self.y_true = self.re_level(self.y_true)
             self.modified = True
         if random.uniform(0, 11) > 10 :
