@@ -11,7 +11,7 @@ if __name__ == '__main__':
         device = torch.device("cuda")
         #print(torch.cuda.is_available())
         torch.set_default_device("cuda")
-        model = SourceX.AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
+        model = SourceX.AudioModel(torch.nn.Mish())
         model.to(device='cuda')
         try:
             checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
@@ -22,7 +22,7 @@ if __name__ == '__main__':
         except:
             print('nu am incarcat nici-un state dict')
 
-        rate, input_file = read(f'input/Little Sister.wav')
+        rate, input_file = read(f'input/input.wav')
         input_file = input_file / numpy.iinfo(numpy.int16).max
         print(input_file)
 

@@ -15,16 +15,16 @@ if __name__ == '__main__':
         device = torch.device("cuda")
         # print(torch.cuda.is_available())
         torch.set_default_device("cuda")
-        model = SourceX.AudioModel(torch.nn.Tanh(), torch.nn.Mish(), torch.nn.ReLU())
+        model = SourceX.AudioModel(torch.nn.Mish())
         model.to(device='cuda')
-        try:
-            checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
+        #try:
+        checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
 
-            model.eval()
-            tqdm.write('am incarcat model.model')
-        except:
-            tqdm.write('nu am incarcat nici-un state dict')
+        model.eval()
+        tqdm.write('am incarcat model.model')
+        #except:
+        #    tqdm.write('nu am incarcat nici-un state dict')
         for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout):
             tqdm.write(f'song: {song}')
             rate = 44100
