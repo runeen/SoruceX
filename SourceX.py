@@ -23,6 +23,8 @@ def genereaza_strat_banda(tensor, filter):
 
 
 def genereaza_tensor_din_stereo(tensor, fs=44100):
+
+    output_3_axe_nou = tensor[..., newaxis]
     output = tensor
     nyq = 0.5 * fs
 
@@ -32,7 +34,7 @@ def genereaza_tensor_din_stereo(tensor, fs=44100):
     normal_cutoff = cutoff / nyq
     b, a = butter(5, normal_cutoff, btype='low', analog=False)
 
-    output_3_axe_nou = genereaza_strat_banda(output, (b, a))[..., newaxis]
+    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
     cutoff = np.array([400, 1900])
     normal_cutoff = cutoff / nyq
@@ -78,6 +80,15 @@ def genereaza_tensor_din_stereo(tensor, fs=44100):
 
     return output_3_axe_nou
 
+#aproape ca in Demucs
+def rescale_model(model, a):
+    for sub in model.modules():
+        if isinstance(sub, (torch.nn.Conv2d, torch.nn.Conv1d, torch.nn.ConvTranspose1d)):
+            std = sub.weight.std().detach()
+            scale = (std/ a) ** 0.5
+            sub.weight.data /= scale
+            if sub.bias is not None:
+                sub.bias.data /= scale
 
 class AudioModel(torch.nn.Module):
     def __init__(self, mish_like):
@@ -85,66 +96,68 @@ class AudioModel(torch.nn.Module):
 
         # --- encoders:
         # layer 1
-        self.enc_f_1 = torch.nn.Sequential(torch.nn.Conv2d(9, 30, (2, 2), padding='same', padding_mode='circular'),
+        self.enc_f_1 = torch.nn.Sequential(torch.nn.Conv2d(10, 60, (1, 2), padding='same', padding_mode='circular'),
                                            mish_like)
-        self.enc_dwn_1 = torch.nn.Sequential(torch.nn.Conv1d(30, 60, 8, stride=4), mish_like)
+        self.enc_dwn_1 = torch.nn.Sequential(torch.nn.Conv1d(60, 120, 8, stride=4), mish_like)
 
         # layer 2
-        self.enc_f_2 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (2, 2), padding='same', padding_mode='circular'),
+        self.enc_f_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 2), padding='same', padding_mode='circular'),
                                            mish_like)
-        self.enc_dwn_2 = torch.nn.Sequential(torch.nn.Conv1d(60, 100, 8, stride=4), mish_like)
+        self.enc_dwn_2 = torch.nn.Sequential(torch.nn.Conv1d(120, 200, 8, stride=4), mish_like)
 
         # layer 3
-        self.enc_f_3 = torch.nn.Sequential(torch.nn.Conv2d(100, 100, (2, 2), padding='same', padding_mode='circular'),
+        self.enc_f_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 2), padding='same', padding_mode='circular'),
                                            mish_like)
-        self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(100, 300, 8, stride=4), mish_like)
+        self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(200, 600, 8, stride=4), mish_like)
 
         # layer 4
-        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(300, 300, (2, 2), padding='same', padding_mode='circular'),
+        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 2), padding='same', padding_mode='circular'),
                                            mish_like)
-        self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(300, 600, 8, stride=4), mish_like)
+        self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(600, 1200, 8, stride=4), mish_like)
 
         # layer 5
-        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (2, 2), padding='same', padding_mode='circular'),
+        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 2), padding='same', padding_mode='circular'),
                                            mish_like)
-        self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(600, 900, 8, stride=4), mish_like)
+        self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(1200, 1800, 8, stride=4), mish_like)
 
-        self.blstm = torch.nn.LSTM(900, 900, bidirectional=True, num_layers=3)
-        self.blstm_linear = torch.nn.Linear(1800, 600)
+        self.blstm = torch.nn.LSTM(1800, 1800, bidirectional=True, num_layers=2)
+        self.blstm_linear = torch.nn.Sequential(torch.nn.Linear(3600, 1200), mish_like)
 
         # --- decoders:
         # layer 5
-        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 2), padding='same', padding_mode='circular'),
+        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 1), padding='same', padding_mode='circular'),
                                             mish_like)
-        self.dec_ups_5 = torch.nn.Sequential(torch.nn.ConvTranspose1d(600, 600, 4, 4), mish_like)
-        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 600, (1, 2), padding='same', padding_mode='circular'),
+        self.dec_ups_5 = torch.nn.Sequential(torch.nn.ConvTranspose1d(1200, 1200, 4, 4), mish_like)
+        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(2400, 1200, (1, 1), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 4
-        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(300, 300, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 1), padding='same', padding_mode='circular'),
                                             mish_like)
-        self.dec_ups_4 = torch.nn.Sequential(torch.nn.ConvTranspose1d(300, 300, 4, 4), mish_like)
-        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 200, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_ups_4 = torch.nn.Sequential(torch.nn.ConvTranspose1d(600, 600, 4, 4), mish_like)
+        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(1200, 400, (1, 1), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 3
-        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(100, 100, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 1), padding='same', padding_mode='circular'),
                                             mish_like)
-        self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(100, 100, 4, 4), mish_like)
-        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 120, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(200, 200, 4, 4), mish_like)
+        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(400, 240, (1, 1), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 2
-        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 1), padding='same', padding_mode='circular'),
                                             mish_like)
-        self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 4, 4), mish_like)
-        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 60, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(120, 120, 4, 4), mish_like)
+        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(240, 120, (1, 1), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 1
-        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(30, 30, (1, 1), padding='same', padding_mode='circular'))
-        self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(30, 30, 4, 4))
-        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 4, (1, 1), padding='same', padding_mode='circular'))
+        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (1, 1), padding='same', padding_mode='circular'), mish_like)
+        self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 4, 4), mish_like)
+        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(120, 4, (1, 1), padding='same', padding_mode='circular'))
+
+        rescale_model(self, a=0.1)
 
     def pad_x(self, x: torch.Tensor, stride: int):
         if (x.shape[2]) % stride != 0:
@@ -344,7 +357,8 @@ if __name__ == '__main__':
             total_batched = 0
             while total_batched < audio_original.shape[0]:
 
-                batch_size = random.randint(132300, 1014300)  # 3 - 21 secunde
+                batch_size = random.randint(132300, 441000)  # 3 - 10 secunde
+                #batch_size = 441000 # 10 secunde
                 if audio_original.shape[0] - batch_size >= total_batched:
                     y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
                     total_batched += batch_size

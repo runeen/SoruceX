@@ -2,6 +2,8 @@ import torch
 import random
 import copy
 
+from sympy import false
+
 
 class ChannelWiseLinearTransform(torch.nn.Module):
     def __init__(self, mono=False):
@@ -30,6 +32,27 @@ class ChannelWiseLinearTransform(torch.nn.Module):
 
         return y_output
 
+class MuteStems(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_true):
+        #alegem ce stem sa fie muted
+        a = random.choice([0, 1])
+        b = random.choice([0, 1])
+        c = random.choice([0, 1])
+        d = random.choice([0, 1])
+
+        y_output = copy.deepcopy(y_true)
+
+        y_output[0, :, :] = y_true[0, :, :] * a
+        y_output[1, :, :] = y_true[1, :, :] * b
+        y_output[2, :, :] = y_true[2, :, :] * c
+        y_output[3, :, :] = y_true[3, :, :] * d
+
+        return y_output
+
+
 class StemReLeveling(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -37,13 +60,9 @@ class StemReLeveling(torch.nn.Module):
     def forward(self, y_true):
         #alegem cu cat sa coboram fiecare stem
         a = random.uniform(0, 1)
-        #print(a)
         b = random.uniform(0, 1)
-        #print(b)
         c = random.uniform(0, 1)
-        #print(c)
         d = random.uniform(0, 1)
-        #print(d)
 
         y_output = copy.deepcopy(y_true)
 
@@ -63,6 +82,7 @@ class Augment(torch.nn.Module):
         self.channel_lin_tran = ChannelWiseLinearTransform()
         self.mono = ChannelWiseLinearTransform(mono=True)
         self.re_level = StemReLeveling()
+        self.mute = MuteStems()
         self.x_true = None
         self.y_true = y_true
         self.modified = False
@@ -102,6 +122,9 @@ class Augment(torch.nn.Module):
 
         if random.uniform(0, 3) > 2 :
             self.y_true = self.re_level(self.y_true)
+            self.modified = True
+        if random.uniform(0, 3) > 2:
+            self.y_true = self.mute(self.y_true)
             self.modified = True
         if random.uniform(0, 11) > 10 :
             self.y_true = self.channel_lin_tran(self.y_true)
