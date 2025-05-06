@@ -1,0 +1,148 @@
+C:\Users\aeuge\anaconda3\python.exe C:\Users\aeuge\PycharmProjects\LicentaModel\eval.py
+am incarcat model.model
+song: 0
+vocals          ==> SDR:   0.969  SIR:  10.911  ISR:   1.950  SAR:  -0.011
+drums           ==> SDR:   2.210  SIR:   1.699  ISR:   4.440  SAR:   3.146
+bass            ==> SDR:  -4.628  SIR:  -9.111  ISR:   4.549  SAR:   3.278
+other           ==> SDR:  -0.905  SIR:  -8.613  ISR:   1.369  SAR:   2.756
+
+song: 1
+vocals          ==> SDR:   1.569  SIR:  11.860  ISR:   2.154  SAR:   0.100
+drums           ==> SDR:   1.308  SIR:  -3.620  ISR:   3.065  SAR:   0.637
+bass            ==> SDR:   3.149  SIR:  10.739  ISR:   2.623  SAR:   1.786
+other           ==> SDR:  -0.966  SIR:  -4.609  ISR:   7.543  SAR:   3.295
+
+song: 2
+vocals          ==> SDR:   1.373  SIR:  10.866  ISR:   2.675  SAR:   1.296
+drums           ==> SDR:   3.551  SIR:   4.770  ISR:   6.141  SAR:   4.032
+bass            ==> SDR:   2.729  SIR:   6.117  ISR:   3.733  SAR:   2.311
+other           ==> SDR:   1.810  SIR:   0.999  ISR:   8.186  SAR:   6.619
+
+song: 3
+vocals          ==> SDR:   0.212  SIR:  -0.930  ISR:   1.578  SAR:  -0.435
+drums           ==> SDR:  -2.633  SIR:  -4.473  ISR:   7.943  SAR:   4.235
+bass            ==> SDR:   3.566  SIR:   5.549  ISR:   8.214  SAR:   3.978
+other           ==> SDR:   0.752  SIR:   1.508  ISR:   1.147  SAR:   3.135
+
+song: 4
+vocals          ==> SDR:  -0.007  SIR:  -8.302  ISR:   0.317  SAR:  -1.539
+drums           ==> SDR:   5.232  SIR:  12.994  ISR:   7.473  SAR:   5.600
+bass            ==> SDR:   2.644  SIR:   7.412  ISR:   4.370  SAR:   2.015
+other           ==> SDR:   0.006  SIR:  -1.732  ISR:  10.944  SAR:   7.466
+
+song: 5
+vocals          ==> SDR:   1.806  SIR:  16.565  ISR:   2.741  SAR:   0.757
+drums           ==> SDR:   1.815  SIR:   2.507  ISR:   3.331  SAR:   1.019
+bass            ==> SDR:   4.672  SIR:   6.071  ISR:   9.665  SAR:   6.656
+other           ==> SDR:  -0.870  SIR:  -3.441  ISR:   8.081  SAR:   4.682
+
+song: 6
+vocals          ==> SDR:   0.300  SIR:   7.773  ISR:   1.523  SAR:   0.425
+drums           ==> SDR:   3.276  SIR:   7.221  ISR:   5.265  SAR:   3.036
+bass            ==> SDR:   3.641  SIR:   4.970  ISR:   9.229  SAR:   5.035
+other           ==> SDR:   1.592  SIR:   0.487  ISR:   7.216  SAR:   6.084
+
+song: 7
+vocals          ==> SDR:   1.130  SIR:   9.439  ISR:   2.366  SAR:  -0.815
+drums           ==> SDR:   0.556  SIR:  -4.136  ISR:   1.458  SAR:   0.727
+bass            ==> SDR:   3.196  SIR:   3.681  ISR:   9.950  SAR:   5.544
+other           ==> SDR:  -0.314  SIR:  -4.564  ISR:   4.099  SAR:   4.310
+
+song: 8
+vocals          ==> SDR:   0.273  SIR:  -0.143  ISR:   0.540  SAR:  -0.327
+drums           ==> SDR:   5.335  SIR:  10.743  ISR:   7.748  SAR:   6.335
+bass            ==> SDR:   3.365  SIR:   4.980  ISR:   9.730  SAR:   4.393
+other           ==> SDR:   1.585  SIR:  -0.153  ISR:   6.261  SAR:   7.083
+
+song: 9
+vocals          ==> SDR:   1.125  SIR:   9.045  ISR:   2.688  SAR:   0.376
+drums           ==> SDR:   1.490  SIR:   0.610  ISR:   3.868  SAR:   1.140
+bass            ==> SDR:  -1.100  SIR:  -6.327  ISR:   2.410  SAR:  -1.179
+other           ==> SDR:   1.929  SIR:   1.223  ISR:  10.533  SAR:   7.063
+
+song: 10
+vocals          ==> SDR:   1.247  SIR:  12.311  ISR:   2.311  SAR:   0.618
+drums           ==> SDR:   6.026  SIR:  10.722  ISR:   9.686  SAR:   6.286
+bass            ==> SDR:   1.270  SIR:   1.254  ISR:   4.479  SAR:   1.902
+other           ==> SDR:  -0.486  SIR:  -3.621  ISR:   5.625  SAR:   4.956
+
+song: 11
+vocals          ==> SDR:   2.434  SIR:  12.191  ISR:   4.063  SAR:   1.414
+drums           ==> SDR:   3.243  SIR:  10.624  ISR:   3.891  SAR:   3.006
+bass            ==> SDR:  -0.158  SIR:  -9.191  ISR:   0.548  SAR:  -4.091
+other           ==> SDR:  -3.414  SIR:  -4.920  ISR:   9.137  SAR:   4.063
+
+song: 12
+vocals          ==> SDR:   1.467  SIR:  12.377  ISR:   3.548  SAR:   1.370
+drums           ==> SDR:   5.828  SIR:   7.780  ISR:  13.582  SAR:   6.481
+bass            ==> SDR:   2.177  SIR:   4.699  ISR:   5.046  SAR:   1.074
+other           ==> SDR:   1.987  SIR:   2.468  ISR:   5.745  SAR:   4.418
+
+song: 13
+vocals          ==> SDR:   0.406  SIR:  10.270  ISR:   1.127  SAR:   0.010
+drums           ==> SDR:   5.874  SIR:  10.642  ISR:   8.646  SAR:   6.398
+bass            ==> SDR:   1.331  SIR:   2.682  ISR:   6.492  SAR:   2.126
+other           ==> SDR:   1.532  SIR:   0.150  ISR:   6.588  SAR:   5.096
+
+song: 14
+vocals          ==> SDR:   0.411  SIR:   4.252  ISR:   0.796  SAR:  -0.313
+drums           ==> SDR:   3.990  SIR:   6.162  ISR:   6.000  SAR:   4.112
+bass            ==> SDR:   3.636  SIR:   7.838  ISR:   6.533  SAR:   4.732
+other           ==> SDR:   0.429  SIR:  -1.818  ISR:   9.424  SAR:   7.302
+
+song: 15
+vocals          ==> SDR:   0.439  SIR:   7.815  ISR:   1.345  SAR:  -1.229
+drums           ==> SDR:   2.803  SIR:   1.020  ISR:   5.339  SAR:   4.211
+bass            ==> SDR:   1.117  SIR:  -1.418  ISR:   3.842  SAR:   4.327
+other           ==> SDR:   2.805  SIR:   1.597  ISR:   5.584  SAR:   4.365
+
+song: 16
+vocals          ==> SDR:   0.783  SIR:   4.753  ISR:   1.728  SAR:  -2.557
+drums           ==> SDR:  -0.211  SIR:  -6.755  ISR:   2.201  SAR:   0.743
+bass            ==> SDR:   0.027  SIR:  -3.013  ISR:   6.859  SAR:   4.807
+other           ==> SDR:   0.787  SIR:  -2.445  ISR:   1.553  SAR:   5.030
+
+song: 17
+vocals          ==> SDR:   1.363  SIR:  11.008  ISR:   3.092  SAR:   1.399
+drums           ==> SDR:   3.002  SIR:   4.115  ISR:   7.035  SAR:   3.391
+bass            ==> SDR:   2.074  SIR:   4.599  ISR:   4.105  SAR:   2.041
+other           ==> SDR:   3.369  SIR:   3.982  ISR:   7.588  SAR:   6.008
+
+song: 18
+vocals          ==> SDR:   0.513  SIR:   8.332  ISR:   1.214  SAR:  -1.240
+drums           ==> SDR:   8.855  SIR:  13.058  ISR:  13.116  SAR:   9.096
+bass            ==> SDR:  -0.173  SIR:  -1.319  ISR:   2.174  SAR:  -0.381
+other           ==> SDR:   1.621  SIR:  -0.710  ISR:   7.299  SAR:   5.956
+
+song: 19
+vocals          ==> SDR:   0.525  SIR:  10.940  ISR:   1.102  SAR:  -0.692
+drums           ==> SDR:   3.661  SIR:   8.796  ISR:   5.610  SAR:   5.680
+bass            ==> SDR:   1.684  SIR:   2.206  ISR:   4.423  SAR:   1.121
+other           ==> SDR:  -4.270  SIR:  -5.699  ISR:  11.656  SAR:   7.373
+
+song: 20
+vocals          ==> SDR:   0.522  SIR:  12.931  ISR:   1.582  SAR:   0.056
+drums           ==> SDR:   3.694  SIR:   7.084  ISR:   5.110  SAR:   4.483
+bass            ==> SDR:   2.252  SIR:   7.107  ISR:   3.072  SAR:   1.463
+other           ==> SDR:   1.516  SIR:  -0.046  ISR:  13.117  SAR:   6.557
+
+song: 21
+vocals          ==> SDR:   1.634  SIR:  15.726  ISR:   3.918  SAR:   1.562
+drums           ==> SDR:   1.785  SIR:   3.680  ISR:   5.292  SAR:   2.024
+bass            ==> SDR:   2.012  SIR:   6.173  ISR:   6.165  SAR:   2.579
+other           ==> SDR:   0.996  SIR:   0.495  ISR:   7.153  SAR:   4.218
+
+song: 22
+vocals          ==> SDR:   2.017  SIR:  10.393  ISR:   3.160  SAR:   0.774
+drums           ==> SDR:   2.049  SIR:  -0.083  ISR:   3.544  SAR:   1.508
+bass            ==> SDR:   2.630  SIR:   2.964  ISR:   8.722  SAR:   4.504
+other           ==> SDR:   0.567  SIR:  -1.247  ISR:   6.766  SAR:   4.936
+
+song: 23dfgh
+vocals          ==> SDR:   2.603  SIR:   9.023  ISR:   4.773  SAR:   1.571
+drums           ==> SDR:   4.385  SIR:   7.272  ISR:   7.567  SAR:   5.090
+bass            ==> SDR:   1.893  SIR:   2.089  ISR:   5.888  SAR:   2.750
+other           ==> SDR:   1.208  SIR:  -0.794  ISR:   4.902  SAR:   2.714
+
+song: 24
+ 48%|████▊     | 24/50 [1:00:19<1:03:08, 145.72s/it]sdertyui

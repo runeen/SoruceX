@@ -25,6 +25,11 @@ if __name__ == '__main__':
         tqdm.write('am incarcat model.model')
         #except:
         #    tqdm.write('nu am incarcat nici-un state dict')
+        #total_sdr_drums = 0
+        #total_sdr_bass = 0
+        #total_sdr_vocals = 0
+        #total_sdr_other = 0
+        eval_store = museval.EvalStore()
         for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout):
             tqdm.write(f'song: {song}')
             rate = 44100
@@ -91,6 +96,7 @@ if __name__ == '__main__':
                     estimates
                 )
                 tqdm.write(f'{scores}')
+                eval_store.add_track(scores)
             except:
                 tqdm.write("problema cu scorurile... womp womp!")
 
@@ -98,5 +104,7 @@ if __name__ == '__main__':
 
             gc.collect()
             torch.cuda.empty_cache()
+
+        print(f'{eval_store}')
 
 del model

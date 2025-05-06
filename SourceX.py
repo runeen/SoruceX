@@ -138,7 +138,7 @@ class AudioModel(torch.nn.Module):
         self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(1200, 400, (1, 1), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
-        # layer 3
+          # layer 3
         self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 1), padding='same', padding_mode='circular'),
                                             mish_like)
         self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(200, 200, 4, 4), mish_like)
@@ -373,7 +373,7 @@ if __name__ == '__main__':
                 y_batch, x_true = aug()
                 x_true = x_true.detach().numpy()
                 x_true = genereaza_tensor_din_stereo(x_true)
-                x_true = torch.from_numpy(x_true)
+                x_true = torch.tensor(x_true)
                 x_true = x_true.to(torch.float32)
                 y_batch = y_batch.to(torch.float32)
 
@@ -382,14 +382,16 @@ if __name__ == '__main__':
                 y_batch = y_batch.to(device='cuda')
 
                 loss = criterion(y_bar, y_batch)
-                y_bar.detach()
-                del y_bar
-                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                optimizer.zero_grad()
 
                 del y_batch
                 del x_true
+
+
+                y_bar.detach()
+                del y_bar
 
                 gc.collect()
 

@@ -30,7 +30,7 @@ if __name__ == '__main__':
         # posibil memory leak
         x_batches = []
         total_batched = 0
-        batch_size = 1323000  # 3 - 30 secunde
+        batch_size = 1323000  # 3 - 30 secunded
         while total_batched < input_file.shape[0]:
             if input_file.shape[0] - batch_size >= total_batched:
                 x_batches.append(input_file[total_batched: total_batched + batch_size, :])
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         y_pred = None
         for x_batch in x_batches:
             print('started batch')
-            x_true = torch.from_numpy(SourceX.genereaza_tensor_din_stereo(x_batch))
+            x_true = torch.from_numpy(SourceX.genereaza_tensor_din_stereo(x_batch, fs=rate))
             x_true = x_true.to(torch.float32)
             x_true = x_true.to(device="cuda")
             output = model(x_true)
@@ -59,10 +59,10 @@ if __name__ == '__main__':
 
         y_pred_np = y_pred.detach().numpy()
 
-        write(f'output/drums.wav', 44100, (y_pred_np[0, :, :] * 32767).astype(numpy.int16))
-        write(f'output/bass.wav', 44100, (y_pred_np[1, :, :] * 32767).astype(numpy.int16))
-        write(f'output/vocals.wav', 44100, (y_pred_np[2, :, :] * 32767).astype(numpy.int16))
-        write(f'output/other.wav', 44100, (y_pred_np[3, :, :] * 32767).astype(numpy.int16))
+        write(f'output/drums.wav', rate, (y_pred_np[0, :, :] * 32767).astype(numpy.int16))
+        write(f'output/bass.wav', rate, (y_pred_np[1, :, :] * 32767).astype(numpy.int16))
+        write(f'output/vocals.wav', rate, (y_pred_np[2, :, :] * 32767).astype(numpy.int16))
+        write(f'output/other.wav', rate, (y_pred_np[3, :, :] * 32767).astype(numpy.int16))
 
         del y_pred
         del model
