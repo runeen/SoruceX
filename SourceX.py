@@ -350,16 +350,17 @@ if __name__ == '__main__':
         }
 
         for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix=postfix):
-            audio_original = mus[song].audio
+            #cand am incercat sa citesc random chunk-uri din toate melodiile
+            #statea 34 de ore la o epoca T_T
             stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
 
             y_true_batches = []
             total_batched = 0
-            while total_batched < audio_original.shape[0]:
+            while total_batched < stems_original.shape[1]:
 
-                batch_size = random.randint(132300, 441000)  # 3 - 10 secunde
+                batch_size = random.randint(220500, 352800)  # 5 - 8 secunde
                 #batch_size = 441000 # 10 secunde
-                if audio_original.shape[0] - batch_size >= total_batched:
+                if stems_original.shape[1] - batch_size >= total_batched:
                     y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
                     total_batched += batch_size
                 else:
