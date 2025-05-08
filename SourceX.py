@@ -1,4 +1,5 @@
 import gc
+import math
 import os
 import random
 import sys
@@ -349,69 +350,90 @@ if __name__ == '__main__':
             't' : t,
         }
 
-        for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix=postfix):
-            #cand am incercat sa citesc random chunk-uri din toate melodiile
-            #statea 34 de ore la o epoca T_T
-            stems_original = mus[song].stems[(1, 2, 4, 3), :, :]
+        songs_in_a_batch = 5
+        #progress_bar = tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout, postfix=postfix)
+        total_loss_epoch = 0
+        nr_batches_epoch = 0
 
-            y_true_batches = []
-            total_batched = 0
-            while total_batched < stems_original.shape[1]:
+        with tqdm(total = math.ceil(len(mus) / songs_in_a_batch), colour='#e0b0ff', file=sys.stdout, postfix=postfix) as pbar:
+            for song_idx in range(len(mus)):
+                #cand am incercat sa citesc random chunk-uri din toate melodiile
+                #statea 34 de ore la o epoca T_T
+                #pbar.write(f'{song_idx}')
+                if song_idx % songs_in_a_batch != 0:
+                    continue
+                #print(song_idx)
 
-                batch_size = random.randint(220500, 352800)  # 5 - 8 secunde
-                #batch_size = 441000 # 10 secunde
-                if stems_original.shape[1] - batch_size >= total_batched:
-                    y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
-                    total_batched += batch_size
-                else:
-                    y_true_batches.append(stems_original[:, total_batched:, :])
-                    break
+                stems_original = mus[song_idx].stems[(1, 2, 4, 3), :, :]
+                #pbar.write(f'{stems_original.shape[1]}')
+                try:
+                    for i in range(1, songs_in_a_batch):
+                        stems_original = np.concatenate((stems_original, mus[song_idx + i].stems[(1, 2, 4, 3), :, :]), axis=1)
+                except:
+                    pass
+                #pbar.write(f'{stems_original.shape[1]}')
 
-            for y_batch in y_true_batches:
+                y_true_batches = []
+                total_batched = 0
+                while total_batched < stems_original.shape[1]:
+                    batch_size = random.randint(220500, 352800)  # 5 - 8 secunde
+                    #batch_size = 441000 # 10 secunde
+                    if stems_original.shape[1] - batch_size >= total_batched:
+                        y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
+                        total_batched += batch_size
+                    else:
+                        y_true_batches.append(stems_original[:, total_batched:, :])
+                        break
 
-                # trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
-                aug = augment.Augment(torch.tensor(y_batch, device='cpu'))
-                y_batch, x_true = aug()
-                x_true = x_true.detach().numpy()
-                x_true = genereaza_tensor_din_stereo(x_true)
-                x_true = torch.tensor(x_true)
-                x_true = x_true.to(torch.float32)
-                y_batch = y_batch.to(torch.float32)
+                random.shuffle(y_true_batches)
 
-                x_true = x_true.to(device="cuda")
-                y_bar = model(x_true)
-                y_batch = y_batch.to(device='cuda')
+                total_loss = 0
+                nr_batches = len(y_true_batches)
+                nr_batches_epoch += nr_batches
+                for y_batch in y_true_batches:
 
-                loss = criterion(y_bar, y_batch)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
+                    # trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
+                    aug = augment.Augment(torch.tensor(y_batch, device='cpu'))
+                    y_batch, x_true = aug()
+                    x_true = x_true.detach().numpy()
+                    x_true = genereaza_tensor_din_stereo(x_true)
+                    x_true = torch.tensor(x_true)
+                    x_true = x_true.to(torch.float32)
+                    y_batch = y_batch.to(torch.float32)
 
-                del y_batch
-                del x_true
+                    x_true = x_true.to(device="cuda")
+                    y_bar = model(x_true)
+                    y_batch = y_batch.to(device='cuda')
 
+                    loss = criterion(y_bar, y_batch)
+                    total_loss += loss.item()
+                    total_loss_epoch += loss.item()
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
 
-                y_bar.detach()
-                del y_bar
-
-                gc.collect()
-
-                if song % 10 == 9 or debug:
-                    t1 = time.perf_counter()
-                    t0 = time.perf_counter()
-                    tqdm.write(f't- {t}, song- {song}, mae: {loss.item()}')
+                    del y_batch
+                    del x_true
 
 
-            del y_true_batches
+                    y_bar.detach()
+                    del y_bar
 
-            torch.cuda.empty_cache()
+                    gc.collect()
 
-            try:
-                torch.save({
-                    't': t,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                }, f'istorie antrenari/azi/model.model')
-            except:
-                tqdm.write('nu am putut salva modelul')
+
+                del y_true_batches
+
+                torch.cuda.empty_cache()
+
+                try:
+                    torch.save({
+                        't': t,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                    }, f'istorie antrenari/azi/model.model')
+                except:
+                    tqdm.write('nu am putut salva modelul')
+                pbar.set_description(f'avg loss for last batch: {total_loss / nr_batches}, for epoch:{total_loss_epoch / nr_batches_epoch}')
+                pbar.update(1)
         t += 1
