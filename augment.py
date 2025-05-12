@@ -1,13 +1,13 @@
-import torch
 import random
 import copy
+import time
+import numpy
 
 from sympy import false
 
 
-class ChannelWiseLinearTransform(torch.nn.Module):
+class ChannelWiseLinearTransform:
     def __init__(self, mono=False):
-        super().__init__()
         self.mono = mono
 
     def forward(self, y_true):
@@ -32,10 +32,7 @@ class ChannelWiseLinearTransform(torch.nn.Module):
 
         return y_output
 
-class MuteStems(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
+class MuteStems:
     def forward(self, y_true):
         #alegem ce stem sa fie muted
         a = random.choice([0, 1])
@@ -53,10 +50,7 @@ class MuteStems(torch.nn.Module):
         return y_output
 
 
-class StemReLeveling(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
+class StemReLeveling:
     def forward(self, y_true):
         #alegem cu cat sa coboram fiecare stem
         a = random.uniform(0, 1)
@@ -76,35 +70,34 @@ class StemReLeveling(torch.nn.Module):
 
 
 
-class Augment(torch.nn.Module):
-    def __init__(self, y_true):
-        super().__init__()
+class Augment:
+    def __init__(self):
         self.channel_lin_tran = ChannelWiseLinearTransform()
         self.mono = ChannelWiseLinearTransform(mono=True)
         self.re_level = StemReLeveling()
         self.mute = MuteStems()
         self.x_true = None
-        self.y_true = y_true
+        self.y_true = None
         self.modified = False
 
 
-    def calc_x_true(self):
+    def calc_x_true(self) -> int:
         '''
         Calculeaza x_true si normalizeaza ambii tensori daca
         depaseste 1
         :return:
         '''
 
-        self.x_true = torch.sum(self.y_true, dim = 0)
+        self.x_true = numpy.sum(self.y_true, axis = 0)
 
-        max_amp_x = torch.max(torch.abs(self.x_true))
+        max_amp_x = numpy.max(numpy.abs(self.x_true))
+        if max_amp_x < 0.001:
+            return 1
+        if max_amp_x < 0.90:
+            self.y_true = self.y_true / max_amp_x
+            self.x_true = numpy.sum(self.y_true, axis = 0)
 
-        if max_amp_x > 1.:
-            self.y_true = self.y_true - self.y_true * (max_amp_x - 1)
-            self.x_true = torch.sum(self.y_true, dim = 0)
-        if max_amp_x < 1.:
-            self.y_true = self.y_true + self.y_true * (1 - max_amp_x)
-            self.x_true = torch.sum(self.y_true, dim = 0)
+        return 0
 
     def replace_y_true_with_diff(self):
         '''
@@ -117,62 +110,53 @@ class Augment(torch.nn.Module):
 
 
 
-    def forward(self):
+    def forward(self, y_true):
+        self.y_true = y_true
         self.y_original = copy.deepcopy(self.y_true)
 
         if random.uniform(0, 3) > 2 :
-            self.y_true = self.re_level(self.y_true)
+            self.y_true = self.re_level.forward(self.y_true)
             self.modified = True
         if random.uniform(0, 3) > 2:
-            self.y_true = self.mute(self.y_true)
+            self.y_true = self.mute.forward(self.y_true)
             self.modified = True
         if random.uniform(0, 11) > 10 :
-            self.y_true = self.channel_lin_tran(self.y_true)
+            self.y_true = self.channel_lin_tran.forward(self.y_true)
             self.modified = True
         elif random.uniform(0, 11) > 10:
-            self.y_true = self.mono(self.y_true)
+            self.y_true = self.mono.forward(self.y_true)
             self.modified = True
         if random.uniform(0, 13) > 12 : self.replace_y_true_with_diff()
 
-        self.calc_x_true()
+        err = self.calc_x_true()
 
-        return self.y_true, self.x_true
+        return self.y_true, self.x_true, err
 
 if __name__ == '__main__':
     import musdb
     from scipy.io.wavfile import write
-    import numpy
     #testam modulul augment
 
     mus = musdb.DB(subsets="train", split='valid')
 
     rate = 44100
+
+    aug = Augment()
+    t0 = time.perf_counter()
     input_file = mus[10].audio
-    stems = torch.from_numpy(mus[10].stems[(1, 2, 4, 3), :, :])
-    #og_stems = copy.deepcopy(stems)
-
-    aug = Augment(stems)
-
-    y_true, x_true = aug()
-
-    y_true_np = y_true.numpy()
-    x_true_np = x_true.numpy()
-
-    diff_np = x_true_np - input_file
+    stems = mus[10].stems[(1, 2, 4, 3), :, :]
+    y_true, x_true, err = aug.forward(stems)
+    print(f'time to augment: {time.perf_counter() - t0}')
 
 
-    write(f'output/aug_test_x_true.wav', rate, (x_true_np *  32767).astype(numpy.int16))
+
+    diff_np = x_true - input_file
+
+    print(numpy.max(abs(x_true)))
+
+
+    write(f'output/aug_test_x_true.wav', rate, (x_true *  32767).astype(numpy.int16))
     write(f'output/aud_test_diff.wav', rate, (diff_np *  32767).astype(numpy.int16))
-
-    '''
-    aug = Augment(stems)
-
-    y_true, x_true = aug()
-
-    #y_true_np = y_true.numpy()
-    x_true_np = x_true.numpy()
-    write(f'output/aug_test_x_true_mono.wav', rate, (x_true_np *  32767).astype(numpy.int16))
-    '''
 
 
 

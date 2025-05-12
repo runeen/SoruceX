@@ -15,7 +15,8 @@ from tqdm import tqdm
 import augment
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-torch.backends.cudnn.deterministic = True
+#torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = True
 
 
 def genereaza_strat_banda(tensor, filter):
@@ -112,51 +113,54 @@ class AudioModel(torch.nn.Module):
         self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(200, 600, 8, stride=4), mish_like)
 
         # layer 4
-        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 2), padding='same', padding_mode='circular'),
+        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (3, 2), padding='same', padding_mode='circular'),
                                            mish_like)
         self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(600, 1200, 8, stride=4), mish_like)
 
         # layer 5
-        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 2), padding='same', padding_mode='circular'),
+        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (3, 2), padding='same', padding_mode='circular'),
                                            mish_like)
         self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(1200, 1800, 8, stride=4), mish_like)
 
         self.blstm = torch.nn.LSTM(1800, 1800, bidirectional=True, num_layers=2)
-        self.blstm_linear = torch.nn.Sequential(torch.nn.Linear(3600, 1200), mish_like)
+        self.blstm_linear = torch.nn.Sequential(torch.nn.Linear(3600, 3000), mish_like,
+                                                torch.nn.Linear(3000, 2500), mish_like,
+                                                torch.nn.Linear(2500, 2000), mish_like,
+                                                torch.nn.Linear(2000, 1200), mish_like)
 
         # --- decoders:
         # layer 5
-        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 2), padding='same', padding_mode='circular'),
                                             mish_like)
         self.dec_ups_5 = torch.nn.Sequential(torch.nn.ConvTranspose1d(1200, 1200, 4, 4), mish_like)
-        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(2400, 1200, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(2400, 1200, (3, 2), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 4
-        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 2), padding='same', padding_mode='circular'),
                                             mish_like)
         self.dec_ups_4 = torch.nn.Sequential(torch.nn.ConvTranspose1d(600, 600, 4, 4), mish_like)
-        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(1200, 400, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(1200, 400, (3, 2), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
           # layer 3
-        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 2), padding='same', padding_mode='circular'),
                                             mish_like)
         self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(200, 200, 4, 4), mish_like)
-        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(400, 240, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(400, 240, (1, 2), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 2
-        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 2), padding='same', padding_mode='circular'),
                                             mish_like)
         self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(120, 120, 4, 4), mish_like)
-        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(240, 120, (1, 1), padding='same', padding_mode='circular'),
+        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(240, 120, (1, 2), padding='same', padding_mode='circular'),
                                             torch.nn.GLU(0))
 
         # layer 1
-        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (1, 1), padding='same', padding_mode='circular'), mish_like)
+        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (1, 2), padding='same', padding_mode='circular'), mish_like)
         self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 4, 4), mish_like)
-        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(120, 4, (1, 1), padding='same', padding_mode='circular'))
+        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(120, 4, (1, 2), padding='same', padding_mode='circular'))
 
         rescale_model(self, a=0.1)
 
@@ -310,7 +314,7 @@ class AudioModel(torch.nn.Module):
         gc.collect()
         x = self.dec_f2_1(x)
 
-        del skip_tensor
+        #del skip_tensor
         return x
 
 
@@ -331,17 +335,18 @@ if __name__ == '__main__':
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         t = checkpoint['t']
 
-        model.train()
+        #model.train()
         print('am incarcat model.model')
     except:
-        print('nu am incarcat nici-un state dict')
+        print('nu am incarcat nici-un state dict (nu uita sa stergi ce model.model deja exista (daca exista) ca s-ar putea sa creeze probleme :3)')
 
     criterion = torch.nn.L1Loss()
     criterion.requires_grad_(True)
     mus = musdb.DB(subsets="train")
     torch.set_grad_enabled(True)
 
-    t0 = time.perf_counter()
+    aug = augment.Augment()
+
 
     debug = False
     while t < 1000:
@@ -373,11 +378,15 @@ if __name__ == '__main__':
                     pass
                 #pbar.write(f'{stems_original.shape[1]}')
 
+
+                #daca intentionez sa tin batch-size-ul constant atunci
+                #ar trebui sa ma scap de lista y_true_batches si sa folosesc
+                #un ndarray
                 y_true_batches = []
                 total_batched = 0
                 while total_batched < stems_original.shape[1]:
-                    batch_size = random.randint(220500, 352800)  # 5 - 8 secunde
-                    #batch_size = 441000 # 10 secunde
+                    #batch_size = random.randint(220500, 264600)  # 5 - 6 secunde
+                    batch_size = 176400 # 4 secunde
                     if stems_original.shape[1] - batch_size >= total_batched:
                         y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
                         total_batched += batch_size
@@ -390,15 +399,20 @@ if __name__ == '__main__':
                 total_loss = 0
                 nr_batches = len(y_true_batches)
                 nr_batches_epoch += nr_batches
+                #as putea face cu pop in loc de for pt a economisii memorie
                 for y_batch in y_true_batches:
-
-                    # trb sa fac partea de separare benzi parte din model(ca sa nu mai rezolv probleme de memorie in loopul de training)
-                    aug = augment.Augment(torch.tensor(y_batch, device='cpu'))
-                    y_batch, x_true = aug()
-                    x_true = x_true.detach().numpy()
+                    #t0 = time.perf_counter()
+                    y_batch, x_true, err = aug.forward(y_batch)
+                    if err == 1:
+                        continue
+                    #if np.any(np.isnan(x_true)) == 1:
+                    #    tqdm.write('Warning, aug a returnat np.array cu Nan')
+                    #    tqdm.write(f'{x_true}')
+                    #    continue
                     x_true = genereaza_tensor_din_stereo(x_true)
                     x_true = torch.tensor(x_true)
                     x_true = x_true.to(torch.float32)
+                    y_batch = torch.tensor(y_batch)
                     y_batch = y_batch.to(torch.float32)
 
                     x_true = x_true.to(device="cuda")
@@ -408,23 +422,16 @@ if __name__ == '__main__':
                     loss = criterion(y_bar, y_batch)
                     total_loss += loss.item()
                     total_loss_epoch += loss.item()
+
                     loss.backward()
                     optimizer.step()
                     optimizer.zero_grad()
 
-                    del y_batch
-                    del x_true
 
-
-                    y_bar.detach()
-                    del y_bar
-
-                    gc.collect()
-
+                    #tqdm.write(f'time: {time.perf_counter() - t0}')
 
                 del y_true_batches
-
-                torch.cuda.empty_cache()
+                #torch.cuda.empty_cache()
 
                 try:
                     torch.save({
@@ -436,4 +443,6 @@ if __name__ == '__main__':
                     tqdm.write('nu am putut salva modelul')
                 pbar.set_description(f'avg loss for last batch: {total_loss / nr_batches}, for epoch:{total_loss_epoch / nr_batches_epoch}')
                 pbar.update(1)
+
+                gc.collect()
         t += 1

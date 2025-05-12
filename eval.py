@@ -41,7 +41,7 @@ if __name__ == '__main__':
             # posibil memory leak
             x_batches = []
             total_batched = 0
-            batch_size = 1323000  # 3 - 30 secunde
+            batch_size = 661500  # 15 secunde
             while total_batched < input_file.shape[0]:
                 if input_file.shape[0] - batch_size >= total_batched:
                     x_batches.append(input_file[total_batched: total_batched + batch_size, :])
@@ -100,10 +100,10 @@ if __name__ == '__main__':
             except:
                 tqdm.write("problema cu scorurile... womp womp!")
 
-            del y_pred
+            #del y_pred
 
-            gc.collect()
-            torch.cuda.empty_cache()
+            #gc.collect()
+            #torch.cuda.empty_cache()
 
         print(f'{eval_store}')
 

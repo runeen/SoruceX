@@ -1,0 +1,9 @@
+C:\Users\aeuge\anaconda3\python.exe C:\Users\aeuge\PycharmProjects\LicentaModel\SourceX.py
+am incarcat model.model
+avg loss for last batch: 0.02691347582595238, for epoch:0.02832207819549354: 100%|██████████| 20/20 [2:53:30<00:00, 520.53s/it, t=9]
+avg loss for last batch: 0.027050113680528245, for epoch:0.027840926341638615: 100%|██████████| 20/20 [2:46:28<00:00, 499.44s/it, t=10]
+avg loss for last batch: 0.020569742465665838, for epoch:0.02730563523833329: 100%|██████████| 20/20 [2:45:18<00:00, 495.92s/it, t=11]
+avg loss for last batch: 0.02114776870527144, for epoch:0.027121494156636443: 100%|██████████| 20/20 [2:47:02<00:00, 501.14s/it, t=12]
+avg loss for last batch: 0.022735160625132502, for epoch:0.026812441368206673: 100%|██████████| 20/20 [2:45:14<00:00, 495.74s/it, t=13]
+avg loss for last batch: 0.02484665117674771, for epoch:0.026596082366283334: 100%|██████████| 20/20 [2:45:44<00:00, 497.21s/it, t=14]
+avg loss for last batch: 0.0267127325237893, for epoch:0.026506716396374207:  30%|███       | 6/20 [44:59<1:35:48, 410.64s/it, t=15]
