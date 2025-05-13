@@ -26,6 +26,8 @@ def genereaza_strat_banda(tensor, filter):
 
 def genereaza_tensor_din_stereo(tensor, fs=44100):
 
+    # (ex) 2.1.1 Separarea pe benzi a semnalului original
+
     output_3_axe_nou = tensor[..., newaxis]
     output = tensor
     nyq = 0.5 * fs
@@ -35,7 +37,6 @@ def genereaza_tensor_din_stereo(tensor, fs=44100):
 
     normal_cutoff = cutoff / nyq
     b, a = butter(5, normal_cutoff, btype='low', analog=False)
-
     output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
 
     cutoff = np.array([400, 1900])
@@ -255,7 +256,6 @@ class AudioModel(torch.nn.Module):
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
         x = x.permute(1, 2, 0)
 
-        gc.collect()
         x = self.dec_f2_5(x)
 
         # dec layer 4: -----------------------------------------------------------------
@@ -269,7 +269,6 @@ class AudioModel(torch.nn.Module):
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
-        gc.collect()
         x = self.dec_f2_4(x)
 
         # dec layer 3: -----------------------------------------------------------------
@@ -283,7 +282,6 @@ class AudioModel(torch.nn.Module):
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
-        gc.collect()
         x = self.dec_f2_3(x)
 
         # dec layer 2: -----------------------------------------------------------------
@@ -295,7 +293,6 @@ class AudioModel(torch.nn.Module):
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        gc.collect()
         x = x.permute(1, 2, 0)
         x = self.dec_f2_2(x)
 
@@ -304,14 +301,13 @@ class AudioModel(torch.nn.Module):
         # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
         x = x.permute(2, 0, 1)
 
-        gc.collect()
         x = self.dec_ups_1(x)
         skip_tensor = skip.pop(-1)
         x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
+
         # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
         x = x.permute(1, 2, 0)
 
-        gc.collect()
         x = self.dec_f2_1(x)
 
         #del skip_tensor
@@ -343,7 +339,7 @@ if __name__ == '__main__':
     criterion = torch.nn.L1Loss()
     criterion.requires_grad_(True)
     mus = musdb.DB(subsets="train")
-    torch.set_grad_enabled(True)
+    #torch.set_grad_enabled(True)
 
     aug = augment.Augment()
 
@@ -370,13 +366,11 @@ if __name__ == '__main__':
                 #print(song_idx)
 
                 stems_original = mus[song_idx].stems[(1, 2, 4, 3), :, :]
-                #pbar.write(f'{stems_original.shape[1]}')
                 try:
                     for i in range(1, songs_in_a_batch):
                         stems_original = np.concatenate((stems_original, mus[song_idx + i].stems[(1, 2, 4, 3), :, :]), axis=1)
                 except:
                     pass
-                #pbar.write(f'{stems_original.shape[1]}')
 
 
                 #daca intentionez sa tin batch-size-ul constant atunci
