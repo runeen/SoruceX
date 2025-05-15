@@ -11,7 +11,7 @@ if __name__ == '__main__':
         device = torch.device("cuda")
         #print(torch.cuda.is_available())
         torch.set_default_device("cuda")
-        model = SourceX.AudioModel(torch.nn.Mish())
+        model = SourceX.AudioModel()
         model.to(device='cuda')
         try:
             checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
@@ -42,13 +42,13 @@ if __name__ == '__main__':
         y_pred = None
         for x_batch in x_batches:
             print('started batch')
-            x_true = torch.from_numpy(SourceX.genereaza_tensor_din_stereo(x_batch, fs=rate))
-            x_true = x_true.to(torch.float32)
-            x_true = x_true.to(device="cuda")
-            output = model(x_true)
+            x_batch = torch.tensor(x_batch)
+            x_batch = x_batch.to(torch.float32)
+            x_batch = x_batch.to(device="cuda")
+            output = model(x_batch)
 
             #s a intamplat ceva funky si acum sunt speriat
-            del x_true
+            del x_batch
             output = output.to(device='cpu')
             if y_pred == None:
                 y_pred = output
@@ -58,11 +58,12 @@ if __name__ == '__main__':
             del output
 
         y_pred_np = y_pred.detach().numpy()
+        print(y_pred_np)
 
-        write(f'output/drums.wav', rate, (y_pred_np[0, :, :] * 32767).astype(numpy.int16))
-        write(f'output/bass.wav', rate, (y_pred_np[1, :, :] * 32767).astype(numpy.int16))
-        write(f'output/vocals.wav', rate, (y_pred_np[2, :, :] * 32767).astype(numpy.int16))
-        write(f'output/other.wav', rate, (y_pred_np[3, :, :] * 32767).astype(numpy.int16))
+        write(f'output/drums.wav', rate, (y_pred_np[(0, 1), :] * 32767).T.astype(numpy.int16))
+        write(f'output/bass.wav', rate, (y_pred_np[(2, 3), :] * 32767).T.astype(numpy.int16))
+        write(f'output/vocals.wav', rate, (y_pred_np[(4, 5), :] * 32767).T.astype(numpy.int16))
+        write(f'output/other.wav', rate, (y_pred_np[(6, 7), :] * 32767).T.astype(numpy.int16))
 
         del y_pred
         del model

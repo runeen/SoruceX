@@ -4,12 +4,15 @@ import os
 import random
 import sys
 import time
+from symtable import Class
 
 import musdb
 import numpy as np
+import scipy.signal
 import torch
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter
 from torch import newaxis
+from torchaudio.functional import filtfilt
 from tqdm import tqdm
 
 import augment
@@ -19,299 +22,212 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 torch.backends.cudnn.benchmark = True
 
 
-def genereaza_strat_banda(tensor, filter):
-    y = filtfilt(filter[0], filter[1], tensor, 0)
-    return y
-
-
-def genereaza_tensor_din_stereo(tensor, fs=44100):
-
-    # (ex) 2.1.1 Separarea pe benzi a semnalului original
-
-    output_3_axe_nou = tensor[..., newaxis]
-    output = tensor
-    nyq = 0.5 * fs
-
-    # primele 3 benzi o sa fie low - mid - high
-    cutoff = 400
-
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([400, 1900])
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='band', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = 1900
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='high', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    # si dupa incepem cu benzile "harmonice"
-
-    cutoff = 640
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='low', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([640, 1280])
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='band', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([1280, 2560])
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='band', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([2560, 5120])
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='band', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = np.array([5120, 10240])
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='band', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    cutoff = 10240
-    normal_cutoff = cutoff / nyq
-    b, a = butter(5, normal_cutoff, btype='high', analog=False)
-    output_3_axe_nou = np.concatenate([output_3_axe_nou, genereaza_strat_banda(output, (b, a))[..., newaxis]], axis=2)
-
-    return output_3_axe_nou
-
 #aproape ca in Demucs
 def rescale_model(model, a):
     for sub in model.modules():
-        if isinstance(sub, (torch.nn.Conv2d, torch.nn.Conv1d, torch.nn.ConvTranspose1d)):
+        if isinstance(sub, (torch.nn.Conv1d, torch.nn.ConvTranspose1d, torch.nn.Linear)):
             std = sub.weight.std().detach()
             scale = (std/ a) ** 0.5
             sub.weight.data /= scale
             if sub.bias is not None:
                 sub.bias.data /= scale
 
-class AudioModel(torch.nn.Module):
-    def __init__(self, mish_like):
+
+# FA FARA LAZY PUTUROSULE
+class EncoderModule(torch.nn.Module):
+    def __init__(self,c_in, c_out, skip_first_mish=False):
         super().__init__()
-
-        # --- encoders:
-        # layer 1
-        self.enc_f_1 = torch.nn.Sequential(torch.nn.Conv2d(10, 60, (1, 2), padding='same', padding_mode='circular'),
-                                           mish_like)
-        self.enc_dwn_1 = torch.nn.Sequential(torch.nn.Conv1d(60, 120, 8, stride=4), mish_like)
-
-        # layer 2
-        self.enc_f_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 2), padding='same', padding_mode='circular'),
-                                           mish_like)
-        self.enc_dwn_2 = torch.nn.Sequential(torch.nn.Conv1d(120, 200, 8, stride=4), mish_like)
-
-        # layer 3
-        self.enc_f_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 2), padding='same', padding_mode='circular'),
-                                           mish_like)
-        self.enc_dwn_3 = torch.nn.Sequential(torch.nn.Conv1d(200, 600, 8, stride=4), mish_like)
-
-        # layer 4
-        self.enc_f_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (3, 2), padding='same', padding_mode='circular'),
-                                           mish_like)
-        self.enc_dwn_4 = torch.nn.Sequential(torch.nn.Conv1d(600, 1200, 8, stride=4), mish_like)
-
-        # layer 5
-        self.enc_f_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (3, 2), padding='same', padding_mode='circular'),
-                                           mish_like)
-        self.enc_dwn_5 = torch.nn.Sequential(torch.nn.Conv1d(1200, 1800, 8, stride=4), mish_like)
-
-        self.blstm = torch.nn.LSTM(1800, 1800, bidirectional=True, num_layers=2)
-        self.blstm_linear = torch.nn.Sequential(torch.nn.Linear(3600, 3000), mish_like,
-                                                torch.nn.Linear(3000, 2500), mish_like,
-                                                torch.nn.Linear(2500, 2000), mish_like,
-                                                torch.nn.Linear(2000, 1200), mish_like)
-
-        # --- decoders:
-        # layer 5
-        self.dec_f1_5 = torch.nn.Sequential(torch.nn.Conv2d(1200, 1200, (1, 2), padding='same', padding_mode='circular'),
-                                            mish_like)
-        self.dec_ups_5 = torch.nn.Sequential(torch.nn.ConvTranspose1d(1200, 1200, 4, 4), mish_like)
-        self.dec_f2_5 = torch.nn.Sequential(torch.nn.Conv2d(2400, 1200, (3, 2), padding='same', padding_mode='circular'),
-                                            torch.nn.GLU(0))
-
-        # layer 4
-        self.dec_f1_4 = torch.nn.Sequential(torch.nn.Conv2d(600, 600, (1, 2), padding='same', padding_mode='circular'),
-                                            mish_like)
-        self.dec_ups_4 = torch.nn.Sequential(torch.nn.ConvTranspose1d(600, 600, 4, 4), mish_like)
-        self.dec_f2_4 = torch.nn.Sequential(torch.nn.Conv2d(1200, 400, (3, 2), padding='same', padding_mode='circular'),
-                                            torch.nn.GLU(0))
-
-          # layer 3
-        self.dec_f1_3 = torch.nn.Sequential(torch.nn.Conv2d(200, 200, (1, 2), padding='same', padding_mode='circular'),
-                                            mish_like)
-        self.dec_ups_3 = torch.nn.Sequential(torch.nn.ConvTranspose1d(200, 200, 4, 4), mish_like)
-        self.dec_f2_3 = torch.nn.Sequential(torch.nn.Conv2d(400, 240, (1, 2), padding='same', padding_mode='circular'),
-                                            torch.nn.GLU(0))
-
-        # layer 2
-        self.dec_f1_2 = torch.nn.Sequential(torch.nn.Conv2d(120, 120, (1, 2), padding='same', padding_mode='circular'),
-                                            mish_like)
-        self.dec_ups_2 = torch.nn.Sequential(torch.nn.ConvTranspose1d(120, 120, 4, 4), mish_like)
-        self.dec_f2_2 = torch.nn.Sequential(torch.nn.Conv2d(240, 120, (1, 2), padding='same', padding_mode='circular'),
-                                            torch.nn.GLU(0))
-
-        # layer 1
-        self.dec_f1_1 = torch.nn.Sequential(torch.nn.Conv2d(60, 60, (1, 2), padding='same', padding_mode='circular'), mish_like)
-        self.dec_ups_1 = torch.nn.Sequential(torch.nn.ConvTranspose1d(60, 60, 4, 4), mish_like)
-        self.dec_f2_1 = torch.nn.Sequential(torch.nn.Conv2d(120, 4, (1, 2), padding='same', padding_mode='circular'))
-
+        self.skip_first_mish = skip_first_mish
+        self.conv1 = torch.nn.Conv1d(c_in, c_in * 2, kernel_size=1)
+        self.down = torch.nn.Conv1d(c_in * 2, c_out, kernel_size=8, stride=4)
         rescale_model(self, a=0.1)
 
+
     def pad_x(self, x: torch.Tensor, stride: int):
-        if (x.shape[2]) % stride != 0:
-            delta = stride - (x.shape[2] % stride)
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], delta + (stride * 2)), device='cuda')], dim=2)
+        #rescrie asta sa mearga cu conv1d
+        if (x.shape[1]) % stride != 0:
+            delta = stride - (x.shape[1] % stride)
+            x = torch.cat([x, torch.zeros((x.shape[0], delta + (stride * 2)), device='cuda')], dim=1)
         else:
-            x = torch.cat([x, torch.zeros((x.shape[0], x.shape[1], stride * 2), device='cuda')], dim=2)
+            x = torch.cat([x, torch.zeros((x.shape[0], stride * 2), device='cuda')], dim=1)
         return x
+
+    def forward(self, x):
+        x = self.conv1(x)
+        if self.skip_first_mish is True:
+            x = torch.nn.functional.mish(x)
+        skip = x
+        x = self.pad_x(x, stride=4)
+        x = torch.nn.functional.mish(self.down(x))
+        return x, skip
+
+class DecoderModule(torch.nn.Module):
+    def __init__(self, c_in, c_out, dim_skip = None):
+        super().__init__()
+        if dim_skip is None:
+            self.conv1 = torch.nn.Conv1d(c_in, c_in * 2, kernel_size=1)
+            self.ups = torch.nn.ConvTranspose1d(c_in * 2, c_out, kernel_size=4, stride=4)
+            self.conv2 = torch.nn.Sequential (
+                torch.nn.Conv1d(c_out * 3, c_out * 2, kernel_size=1),
+                torch.nn.Mish(),
+                torch.nn.GLU(0),
+            )
+        else:
+            self.conv1 = torch.nn.Conv1d(c_in, c_in * 2, kernel_size=1)
+            self.ups = torch.nn.ConvTranspose1d(c_in * 2, c_out, kernel_size=4, stride=4)
+            self.conv2 = torch.nn.Sequential(
+                torch.nn.Conv1d(c_out + dim_skip, c_out * 2, kernel_size=1),
+                torch.nn.Mish(),
+                torch.nn.GLU(0),
+            )
+        rescale_model(self, a=0.1)
+
+    def forward(self, x, skip):
+        x = torch.nn.functional.mish(self.conv1(x))
+        x = torch.nn.functional.mish(self.ups(x))
+        x = torch.cat([x[:, :skip.shape[1]], skip], dim=0)
+        x = self.conv2(x)
+        return x
+
+class LastDecoderModule(torch.nn.Module):
+    def __init__(self, c_in, c_out, skip_dim = 4):
+        super().__init__()
+        self.conv1 = torch.nn.Conv1d(c_in, c_in * 2, kernel_size=1)
+        self.ups = torch.nn.ConvTranspose1d(c_in * 2, c_out, kernel_size=4, stride=4)
+        self.conv2 = torch.nn.Sequential (
+            torch.nn.Conv1d(c_out + skip_dim, c_out, kernel_size=1),
+        )
+        rescale_model(self, a=0.1)
+
+    def forward(self, x, skip):
+        x = torch.nn.functional.mish(self.conv1(x))
+        x = torch.nn.functional.mish(self.ups(x))
+        x = torch.cat([x[:, :skip.shape[1]], skip], dim=0)
+        x = self.conv2(x)
+        return x
+
+class BLSTMModule(torch.nn.Module):
+    def __init__(self, nr_hidden, dropout=0.1):
+        super().__init__()
+        self.FC1 = torch.nn.Sequential(
+            torch.nn.Linear(nr_hidden, nr_hidden // 2), torch.nn.Mish(),
+            torch.nn.Linear(nr_hidden // 2, nr_hidden // 2), torch.nn.Mish()
+        )
+        self.BLSTM = torch.nn.LSTM(input_size= nr_hidden // 2, hidden_size=nr_hidden // 2,bidirectional=True, num_layers=2, dropout=dropout)
+        self.FC2 = torch.nn.Sequential(
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
+            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
+            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish()
+        )
+        rescale_model(self, a=0.1)
+
+    def forward(self, x):
+        x = self.FC1(x)
+        x = self.BLSTM(x)[0]
+        x = self.FC2(x)
+        return x
+
+class BandModel(torch.nn.Module):
+    def __init__(self, filter_params=None):
+        super().__init__()
+        self.encoder_layer_1 = EncoderModule(2, 8, skip_first_mish=True)
+        self.encoder_layer_2 = EncoderModule(8, 32)
+        self.encoder_layer_3 = EncoderModule(32, 128)
+        self.encoder_layer_4 = EncoderModule(128, 512)
+        self.encoder_layer_5 = EncoderModule(512, 1024)
+
+        self.BLSTM = BLSTMModule(1024)
+
+        self.decoder_layer_5 = DecoderModule(1024, 512)
+        self.decoder_layer_4 = DecoderModule(512, 128)
+        self.decoder_layer_3 = DecoderModule(128, 32)
+        self.decoder_layer_2 = DecoderModule(32, 16, dim_skip = 16)
+        self.decoder_layer_1 = LastDecoderModule(16, 16, skip_dim=4)
+
+        self.a = None
+        self.b = None
+        if filter_params is not None:
+            self.a = filter_params[1].to(device='cuda')
+            self.a = self.a.to(dtype=torch.float32)
+            self.b = filter_params[0].to(device='cuda')
+            self.b = self.b.to(dtype=torch.float32)
+
+
 
     def forward(self, x: torch.Tensor):
-        skip = []
-        # x intra ca (T, C, B)
 
-        # enc layer 1: -------------------------------------------------------------------
-        # pentru Conv2d vrem(B, T, C) (Permutatie (T, C, B) -> (B, T, C))
-        x = x.permute(2, 0, 1)
-        x = self.enc_f_1(x)
+        if self.a is not None and self.b is not None:
+            x = filtfilt(x, self.a, self.b)
 
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        skip.append(x)
-        x = self.pad_x(x, 4)
-        x = self.enc_dwn_1(x)
+        x, skip_1 = self.encoder_layer_1(x)
+        x, skip_2 = self.encoder_layer_2(x)
+        x, skip_3 = self.encoder_layer_3(x)
+        x, skip_4 = self.encoder_layer_4(x)
+        x, skip_5 = self.encoder_layer_5(x)
 
-        # pentru urmatorul Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
+        x = torch.permute(x, (1, 0))
 
-        # enc layer 2: -------------------------------------------------------------------
-        x = self.enc_f_2(x)
+        x = self.BLSTM(x)
 
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        skip.append(x)
-        x = self.pad_x(x, 4)
-        x = self.enc_dwn_2(x)
+        x = torch.permute(x, (1, 0))
 
-        # pentru urmatorul Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
+        x = self.decoder_layer_5(x, skip_5)
+        x = self.decoder_layer_4(x, skip_4)
+        x = self.decoder_layer_3(x, skip_3)
+        x = self.decoder_layer_2(x, skip_2)
+        x = self.decoder_layer_1(x, skip_1)
 
-        # enc layer 3: -------------------------------------------------------------------
-        x = self.enc_f_3(x)
-
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        skip.append(x)
-        x = self.pad_x(x, 4)
-        x = self.enc_dwn_3(x)
-
-        # pentru urmatorul Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-
-        # enc layer 4: -------------------------------------------------------------------
-        x = self.enc_f_4(x)
-
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        skip.append(x)
-        x = self.pad_x(x, 4)
-        x = self.enc_dwn_4(x)
-
-        # pentru urmatorul Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-
-        # enc layer 5: -------------------------------------------------------------------
-        x = self.enc_f_5(x)
-
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        skip.append(x)
-        x = self.pad_x(x, 4)
-        x = self.enc_dwn_5(x)
-
-        # blstm -----------------------------------------------------------------------
-        # pentru blstm vrem (T, C, B) (Permutatie (C, B, T) -> (T, C, B))
-        x = x.permute(2, 0, 1)
-
-        x = self.blstm(x)[0]
-
-        x = self.blstm_linear(x)
-
-        # pentru urmatorul filtru vrem (B, T, C) (Permutatie (T, C, B) -> (B, T, C))
-        x = x.permute(2, 0, 1)
-
-        # dec layer 5: -----------------------------------------------------------------
-        x = self.dec_f1_5(x)
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-        x = self.dec_ups_5(x)
-        skip_tensor = skip.pop(-1)
-        x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
-        x = x.permute(1, 2, 0)
-
-        x = self.dec_f2_5(x)
-
-        # dec layer 4: -----------------------------------------------------------------
-        x = self.dec_f1_4(x)
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-
-        x = self.dec_ups_4(x)
-        skip_tensor = skip.pop(-1)
-        x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
-        # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-
-        x = self.dec_f2_4(x)
-
-        # dec layer 3: -----------------------------------------------------------------
-        x = self.dec_f1_3(x)
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-
-        x = self.dec_ups_3(x)
-        skip_tensor = skip.pop(-1)
-        x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
-        # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-
-        x = self.dec_f2_3(x)
-
-        # dec layer 2: -----------------------------------------------------------------
-        x = self.dec_f1_2(x)
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-
-        x = self.dec_ups_2(x)
-        skip_tensor = skip.pop(-1)
-        x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
-        # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-        x = self.dec_f2_2(x)
-
-        # dec layer 1: -----------------------------------------------------------------
-        x = self.dec_f1_1(x)
-        # pentru Conv1d vrem(C, B, T) (Permutatie (B, T, C) -> (C, B, T))
-        x = x.permute(2, 0, 1)
-
-        x = self.dec_ups_1(x)
-        skip_tensor = skip.pop(-1)
-        x = torch.cat([x[:, :, :skip_tensor.shape[2]], skip_tensor], dim=1)
-
-        # pentru Conv2d vrem (B, T, C) (Permutatie (C, B, T) -> (B, T, C)))
-        x = x.permute(1, 2, 0)
-
-        x = self.dec_f2_1(x)
-
-        #del skip_tensor
         return x
+
+class AudioModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        sample_rate = 44100
+
+
+        self.band_0 = BandModel()
+
+        b, a = butter(3, 400 / sample_rate * 2, 'low', analog=False)
+        self.band_1 = BandModel((torch.from_numpy(b), torch.from_numpy(a)))
+
+        b, a = butter(3, np.array([400, 1900]) / sample_rate * 2, 'band', analog=False)
+        self.band_2 = BandModel((torch.from_numpy(b), torch.from_numpy(a)))
+
+        b, a = butter(3, 1900 / sample_rate * 2, 'high', analog=False)
+        self.band_3 = BandModel((torch.from_numpy(b), torch.from_numpy(a)))
+
+        self.FC = torch.nn.Sequential(
+            torch.nn.Linear(16 * 4, 16 * 4), torch.nn.Mish(),
+            torch.nn.Linear(16 * 4, 16 * 3), torch.nn.Mish(),
+            torch.nn.Linear(16 * 3, 16 * 2), torch.nn.Mish(),
+            torch.nn.Linear(16 * 2, 16),
+            torch.nn.Linear(16, 8)
+        )
+
+        rescale_model(self, 0.1)
+
+    def forward(self, x):
+
+        #momentan x intra ca si t x c
+
+
+        x = torch.permute(x, (1, 0))
+
+        x_0 = self.band_0(x)
+        x_1 = self.band_1(x)
+        x_2 = self.band_2(x)
+        x_3 = self.band_3(x)
+
+        x = torch.cat([x_0, x_1, x_2, x_3], dim = 0)
+
+        x = torch.permute(x, (1, 0))
+        x = self.FC(x)
+        x = torch.permute(x, (1, 0))
+        return x
+
+
+
 
 
 if __name__ == '__main__':
@@ -319,7 +235,8 @@ if __name__ == '__main__':
     dtype = torch.float32
     device = torch.device("cuda")
     torch.set_default_device("cuda")
-    model = AudioModel(torch.nn.Mish())
+    model = AudioModel()
+    nr_param = sum(parameter.numel() for parameter in model.parameters())
     # original 2e-5
     learning_rate = 2e-4
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -343,6 +260,7 @@ if __name__ == '__main__':
 
     aug = augment.Augment()
 
+    batch_size = 44100 * 14
 
     debug = False
     while t < 1000:
@@ -379,39 +297,40 @@ if __name__ == '__main__':
                 y_true_batches = []
                 total_batched = 0
                 while total_batched < stems_original.shape[1]:
-                    #batch_size = random.randint(220500, 264600)  # 5 - 6 secunde
-                    batch_size = 176400 # 4 secunde
                     if stems_original.shape[1] - batch_size >= total_batched:
-                        y_true_batches.append(stems_original[:, total_batched: total_batched + batch_size, :])
+                        y_true_batches.append(torch.from_numpy(stems_original[:, total_batched: total_batched + batch_size, :]))
                         total_batched += batch_size
                     else:
-                        y_true_batches.append(stems_original[:, total_batched:, :])
+                        y_true_batches.append(torch.from_numpy(stems_original[:, total_batched:, :]))
                         break
 
                 random.shuffle(y_true_batches)
 
                 total_loss = 0
                 nr_batches = len(y_true_batches)
+                nr_batched_batches = 2
                 nr_batches_epoch += nr_batches
-                #as putea face cu pop in loc de for pt a economisii memorie
-                for y_batch in y_true_batches:
-                    #t0 = time.perf_counter()
+                for idx in range(len(y_true_batches)):
+                    y_batch = y_true_batches.pop(0)
+                    y_batch = y_batch.to(device='cuda')
                     y_batch, x_true, err = aug.forward(y_batch)
                     if err == 1:
                         continue
-                    #if np.any(np.isnan(x_true)) == 1:
-                    #    tqdm.write('Warning, aug a returnat np.array cu Nan')
-                    #    tqdm.write(f'{x_true}')
-                    #    continue
-                    x_true = genereaza_tensor_din_stereo(x_true)
-                    x_true = torch.tensor(x_true)
-                    x_true = x_true.to(torch.float32)
-                    y_batch = torch.tensor(y_batch)
-                    y_batch = y_batch.to(torch.float32)
+                    x_true = x_true.to(dtype=torch.float32)
+                    y_batch = y_batch.to(dtype=torch.float32)
 
-                    x_true = x_true.to(device="cuda")
+
+
+
                     y_bar = model(x_true)
-                    y_batch = y_batch.to(device='cuda')
+                    tensor_nou = torch.zeros(8, y_batch.shape[1])
+                    for i in range(4):
+                        tensor_nou[i * 2] = y_batch[i, :, 0]
+                        tensor_nou[(i * 2) + 1] = y_batch[i, :, 1]
+
+                    y_batch = tensor_nou
+                    del tensor_nou
+
 
                     loss = criterion(y_bar, y_batch)
                     total_loss += loss.item()
@@ -422,10 +341,7 @@ if __name__ == '__main__':
                     optimizer.zero_grad()
 
 
-                    #tqdm.write(f'time: {time.perf_counter() - t0}')
-
                 del y_true_batches
-                #torch.cuda.empty_cache()
 
                 try:
                     torch.save({

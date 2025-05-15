@@ -1,8 +1,8 @@
 import random
 import copy
 import time
-import numpy
-
+#import numpy
+import torch
 from sympy import false
 
 
@@ -88,14 +88,14 @@ class Augment:
         :return:
         '''
 
-        self.x_true = numpy.sum(self.y_true, axis = 0)
+        self.x_true = torch.sum(self.y_true, dim = 0)
 
-        max_amp_x = numpy.max(numpy.abs(self.x_true))
+        max_amp_x = torch.max(torch.abs(self.x_true))
         if max_amp_x < 0.001:
             return 1
         if max_amp_x < 0.90:
             self.y_true = self.y_true / max_amp_x
-            self.x_true = numpy.sum(self.y_true, axis = 0)
+            self.x_true = torch.sum(self.y_true, dim = 0)
 
         return 0
 
@@ -152,11 +152,11 @@ if __name__ == '__main__':
 
     diff_np = x_true - input_file
 
-    print(numpy.max(abs(x_true)))
+    #print(numpy.max(abs(x_true)))
 
 
-    write(f'output/aug_test_x_true.wav', rate, (x_true *  32767).astype(numpy.int16))
-    write(f'output/aud_test_diff.wav', rate, (diff_np *  32767).astype(numpy.int16))
+    #write(f'output/aug_test_x_true.wav', rate, (x_true *  32767).astype(numpy.int16))
+    #write(f'output/aud_test_diff.wav', rate, (diff_np *  32767).astype(numpy.int16))
 
 
 
