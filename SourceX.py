@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
     aug = augment.Augment()
 
-    batch_size = 44100 * 14
+    batch_size = 44100 * 7 # 7 secunde
 
     debug = False
     while t < 1000:

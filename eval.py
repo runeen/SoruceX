@@ -15,7 +15,7 @@ if __name__ == '__main__':
         device = torch.device("cuda")
         # print(torch.cuda.is_available())
         torch.set_default_device("cuda")
-        model = SourceX.AudioModel(torch.nn.Mish())
+        model = SourceX.AudioModel()
         model.to(device='cuda')
         #try:
         checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
@@ -53,7 +53,7 @@ if __name__ == '__main__':
             y_pred = None
             for x_batch in x_batches:
                 #tqdm.write('started batch')
-                x_true = torch.from_numpy(SourceX.genereaza_tensor_din_stereo(x_batch))
+                x_true = torch.tensor(x_batch)
                 x_true = x_true.to(torch.float32)
                 x_true = x_true.to(device="cuda")
                 output = model(x_true)
@@ -68,16 +68,17 @@ if __name__ == '__main__':
 
                 del output
 
+                gc.collect()
+
             y_pred_np = y_pred.detach().numpy()
 
             # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
             # in y_true/y_pred: 0 = drums, 1 = bass, 2 = vocals, 3 = other
             estimates = {
-                'drums': y_pred_np[0, :, :],
-                'bass': y_pred_np[1, :, :],
-                'vocals': y_pred_np[2, :, :],
-                'other': y_pred_np[3, :, :]
-            }
+                'drums': y_pred_np[(0, 1), :].T,
+                'bass': y_pred_np[(2, 3), :].T,
+                'vocals': y_pred_np[(4, 5), :].T,
+                'other': y_pred_np[(6, 7), :].T            }
             '''
             try:
                 # in mus[0].stems: 1 = drums, 2 = bass, 3 = other, 4 = vocals
