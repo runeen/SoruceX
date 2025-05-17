@@ -81,7 +81,7 @@ class Augment:
         self.modified = False
 
 
-    def calc_x_true(self) -> int:
+    def calc_x_true(self, rand_amp = True) -> int:
         '''
         Calculeaza x_true si normalizeaza ambii tensori daca
         depaseste 1
@@ -93,9 +93,13 @@ class Augment:
         max_amp_x = torch.max(torch.abs(self.x_true))
         if max_amp_x < 0.001:
             return 1
-        if max_amp_x < 0.90:
+        if max_amp_x < 0.90 or max_amp_x > 1:
             self.y_true = self.y_true / max_amp_x
             self.x_true = torch.sum(self.y_true, dim = 0)
+
+        if rand_amp:
+            rand = random.uniform(0.5, 1)
+            self.y_true = self.y_true * rand
 
         return 0
 

@@ -54,7 +54,7 @@ class EncoderModule(torch.nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        if self.skip_first_mish is True:
+        if self.skip_first_mish is False:
             x = torch.nn.functional.mish(x)
         skip = x
         x = self.pad_x(x, stride=4)
@@ -69,7 +69,6 @@ class DecoderModule(torch.nn.Module):
             self.ups = torch.nn.ConvTranspose1d(c_in * 2, c_out, kernel_size=4, stride=4)
             self.conv2 = torch.nn.Sequential (
                 torch.nn.Conv1d(c_out * 3, c_out * 2, kernel_size=1),
-                torch.nn.Mish(),
                 torch.nn.GLU(0),
             )
         else:
@@ -77,7 +76,6 @@ class DecoderModule(torch.nn.Module):
             self.ups = torch.nn.ConvTranspose1d(c_in * 2, c_out, kernel_size=4, stride=4)
             self.conv2 = torch.nn.Sequential(
                 torch.nn.Conv1d(c_out + dim_skip, c_out * 2, kernel_size=1),
-                torch.nn.Mish(),
                 torch.nn.GLU(0),
             )
         rescale_model(self, a=0.1)
@@ -107,25 +105,31 @@ class LastDecoderModule(torch.nn.Module):
         return x
 
 class BLSTMModule(torch.nn.Module):
-    def __init__(self, nr_hidden, dropout=0.1):
+    def __init__(self, nr_hidden):
         super().__init__()
         self.FC1 = torch.nn.Sequential(
-            torch.nn.Linear(nr_hidden, nr_hidden // 2), torch.nn.Mish(),
-            torch.nn.Linear(nr_hidden // 2, nr_hidden // 2), torch.nn.Mish()
+            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
+            torch.nn.Linear(nr_hidden, nr_hidden)
         )
-        self.BLSTM = torch.nn.LSTM(input_size= nr_hidden // 2, hidden_size=nr_hidden // 2,bidirectional=True, num_layers=2, dropout=dropout)
+        self.att1 = torch.nn.MultiheadAttention(nr_hidden, 4)
+        self.BLSTM = torch.nn.LSTM(input_size= nr_hidden, hidden_size=nr_hidden,bidirectional=True, num_layers=2)
         self.FC2 = torch.nn.Sequential(
-            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(nr_hidden * 2, nr_hidden),
+        )
+        self.att2 = torch.nn.MultiheadAttention(nr_hidden, 4)
+        self.FC3 = torch.nn.Sequential(
             torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
             torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
-            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish()
         )
         rescale_model(self, a=0.1)
 
     def forward(self, x):
         x = self.FC1(x)
+        x = self.att1(x, x, x)[0]
         x = self.BLSTM(x)[0]
         x = self.FC2(x)
+        x = self.att2(x, x, x)[0]
+        x = self.FC3(x)
         return x
 
 class BandModel(torch.nn.Module):
@@ -198,9 +202,9 @@ class AudioModel(torch.nn.Module):
         self.band_3 = BandModel((torch.from_numpy(b), torch.from_numpy(a)))
 
         self.FC = torch.nn.Sequential(
-            torch.nn.Linear(16 * 4, 16 * 4), torch.nn.Mish(),
-            torch.nn.Linear(16 * 4, 16 * 3), torch.nn.Mish(),
-            torch.nn.Linear(16 * 3, 16 * 2), torch.nn.Mish(),
+            torch.nn.Linear(16 * 4, 16 * 4), torch.nn.Tanh(),
+            torch.nn.Linear(16 * 4, 16 * 3), torch.nn.Tanh(),
+            torch.nn.Linear(16 * 3, 16 * 2), torch.nn.Tanh(),
             torch.nn.Linear(16 * 2, 16),
             torch.nn.Linear(16, 8)
         )
@@ -226,32 +230,52 @@ class AudioModel(torch.nn.Module):
         x = torch.permute(x, (1, 0))
         return x
 
-
-
+# cod de pe https://github.com/pytorch/pytorch/issues/7415#issuecomment-693424574
+def optimizer_to(optim, device):
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
 
 
 if __name__ == '__main__':
 
     dtype = torch.float32
     device = torch.device("cuda")
-    torch.set_default_device("cuda")
-    model = AudioModel()
-    nr_param = sum(parameter.numel() for parameter in model.parameters())
-    # original 2e-5
     learning_rate = 2e-4
+    model = AudioModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    torch.set_default_device("cuda")
+    nr_param = sum(parameter.numel() for parameter in model.parameters())
+    print(nr_param)
+    # original 2e-5
 
     t = 0
     try:
-        checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+        checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True, map_location='cpu')
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         t = checkpoint['t']
+
+        torch.cuda.empty_cache()
+        gc.collect()
+
 
         #model.train()
         print('am incarcat model.model')
     except:
         print('nu am incarcat nici-un state dict (nu uita sa stergi ce model.model deja exista (daca exista) ca s-ar putea sa creeze probleme :3)')
+
+    model.to(device='cuda')
+    optimizer_to(optimizer, 'cuda')
 
     criterion = torch.nn.L1Loss()
     criterion.requires_grad_(True)
@@ -260,7 +284,7 @@ if __name__ == '__main__':
 
     aug = augment.Augment()
 
-    batch_size = 44100 * 7 # 7 secunde
+    batch_size = 44100 * 5 # 6 secunde
 
     debug = False
     while t < 1000:
@@ -294,24 +318,36 @@ if __name__ == '__main__':
                 #daca intentionez sa tin batch-size-ul constant atunci
                 #ar trebui sa ma scap de lista y_true_batches si sa folosesc
                 #un ndarray
-                y_true_batches = []
+                s1_batches = []
+                s2_batches = []
+                s3_batches = []
+                s4_batches = []
                 total_batched = 0
                 while total_batched < stems_original.shape[1]:
                     if stems_original.shape[1] - batch_size >= total_batched:
-                        y_true_batches.append(torch.from_numpy(stems_original[:, total_batched: total_batched + batch_size, :]))
+                        s1_batches.append(torch.from_numpy(stems_original[0, total_batched: total_batched + batch_size, :]))
+                        s2_batches.append(torch.from_numpy(stems_original[1, total_batched: total_batched + batch_size, :]))
+                        s3_batches.append(torch.from_numpy(stems_original[2, total_batched: total_batched + batch_size, :]))
+                        s4_batches.append(torch.from_numpy(stems_original[3, total_batched: total_batched + batch_size, :]))
                         total_batched += batch_size
                     else:
-                        y_true_batches.append(torch.from_numpy(stems_original[:, total_batched:, :]))
                         break
 
-                random.shuffle(y_true_batches)
+                random.shuffle(s1_batches)
+                random.shuffle(s2_batches)
+                random.shuffle(s3_batches)
+                random.shuffle(s4_batches)
 
                 total_loss = 0
-                nr_batches = len(y_true_batches)
+                nr_batches = len(s1_batches)
                 nr_batched_batches = 2
                 nr_batches_epoch += nr_batches
-                for idx in range(len(y_true_batches)):
-                    y_batch = y_true_batches.pop(0)
+                for idx in range(len(s1_batches)):
+                    s1 = s1_batches.pop(0)
+                    s2 = s2_batches.pop(0)
+                    s3 = s3_batches.pop(0)
+                    s4 = s4_batches.pop(0)
+                    y_batch = torch.stack([s1, s2, s3, s4], dim=0)
                     y_batch = y_batch.to(device='cuda')
                     y_batch, x_true, err = aug.forward(y_batch)
                     if err == 1:
@@ -340,8 +376,17 @@ if __name__ == '__main__':
                     optimizer.step()
                     optimizer.zero_grad()
 
+                    del y_batch
+                    del s1
+                    del s2
+                    del s3
+                    del s4
 
-                del y_true_batches
+
+                del s1_batches
+                del s2_batches
+                del s3_batches
+                del s4_batches
 
                 try:
                     torch.save({
@@ -356,3 +401,11 @@ if __name__ == '__main__':
 
                 gc.collect()
         t += 1
+        try:
+            torch.save({
+                't': t,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }, f'istorie antrenari/azi/model.model')
+        except:
+            tqdm.write('nu am putut salva modelul')
