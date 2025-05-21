@@ -10,17 +10,22 @@ if __name__ == '__main__':
         dtype = torch.float32
         device = torch.device("cuda")
         #print(torch.cuda.is_available())
-        torch.set_default_device("cuda")
         model = SourceX.AudioModel()
-        model.to(device='cuda')
         try:
-            checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
+            checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True, map_location='cpu')
             model.load_state_dict(checkpoint['model_state_dict'])
+            t = checkpoint['t']
+
+            torch.cuda.empty_cache()
+            gc.collect()
 
             model.eval()
-            print('am incarcat model.model')
         except:
             print('nu am incarcat nici-un state dict')
+
+
+        torch.set_default_device("cuda")
+        model.to(device='cuda')
 
         rate, input_file = read(f'input/Little Sister.wav')
         input_file = input_file / numpy.iinfo(numpy.int16).max
@@ -30,7 +35,7 @@ if __name__ == '__main__':
         # posibil memory leak
         x_batches = []
         total_batched = 0
-        batch_size = 1323000  # 3 - 30 secunded
+        batch_size = 2646000  # 3 - 30 secunded
         while total_batched < input_file.shape[0]:
             if input_file.shape[0] - batch_size >= total_batched:
                 x_batches.append(input_file[total_batched: total_batched + batch_size, :])

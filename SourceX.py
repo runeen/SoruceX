@@ -13,6 +13,8 @@ import torch
 from scipy.signal import butter
 from torch import newaxis
 from torchaudio.functional import filtfilt
+import torchinfo
+from torchinfo import summary
 from tqdm import tqdm
 
 import augment
@@ -185,12 +187,12 @@ class BandModel(torch.nn.Module):
         return x
 
 class AudioModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, sample_rate = 44100):
         super().__init__()
-        sample_rate = 44100
 
 
         self.band_0 = BandModel()
+
 
         b, a = butter(3, 400 / sample_rate * 2, 'low', analog=False)
         self.band_1 = BandModel((torch.from_numpy(b), torch.from_numpy(a)))
@@ -252,6 +254,7 @@ if __name__ == '__main__':
     device = torch.device("cuda")
     learning_rate = 2e-4
     model = AudioModel()
+    print(summary(model))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     torch.set_default_device("cuda")
     nr_param = sum(parameter.numel() for parameter in model.parameters())
@@ -284,7 +287,7 @@ if __name__ == '__main__':
 
     aug = augment.Augment()
 
-    batch_size = 44100 * 5 # 6 secunde
+    batch_size = 44100 * 5 # 5 secunde
 
     debug = False
     while t < 1000:
@@ -354,7 +357,6 @@ if __name__ == '__main__':
                         continue
                     x_true = x_true.to(dtype=torch.float32)
                     y_batch = y_batch.to(dtype=torch.float32)
-
 
 
 

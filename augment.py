@@ -81,7 +81,7 @@ class Augment:
         self.modified = False
 
 
-    def calc_x_true(self, rand_amp = True) -> int:
+    def calc_x_true(self, rand_amp = False) -> int:
         '''
         Calculeaza x_true si normalizeaza ambii tensori daca
         depaseste 1
