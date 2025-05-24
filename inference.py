@@ -10,7 +10,6 @@ import SourceX
 
 dtype = torch.float32
 device = torch.device("cuda")
-# print(torch.cuda.is_available())
 model = SourceX.AudioModel()
 try:
     checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True, map_location='cpu')
@@ -31,10 +30,8 @@ def separate_into_dict(song, rate=44100):
     with torch.no_grad():
 
         input_file = song / numpy.iinfo(numpy.int16).max
-        #print(input_file)
 
         # genereaza batches
-        # posibil memory leak
         x_batches = []
         total_batched = 0
         batch_size = 2646000  # 1 min
@@ -54,7 +51,6 @@ def separate_into_dict(song, rate=44100):
             x_batch = x_batch.to(device="cuda")
             output = model(x_batch)
 
-            # s a intamplat ceva funky si acum sunt speriat
             del x_batch
             output = output.to(device='cpu')
             if y_pred == None:
@@ -66,11 +62,6 @@ def separate_into_dict(song, rate=44100):
 
         y_pred_np = y_pred.detach().numpy()
         print(y_pred_np)
-
-        #write(f'output/drums.wav', rate, (y_pred_np[(0, 1), :] * 32767).T.astype(numpy.int16))
-        #write(f'output/bass.wav', rate, (y_pred_np[(2, 3), :] * 32767).T.astype(numpy.int16))
-        #write(f'output/vocals.wav', rate, (y_pred_np[(4, 5), :] * 32767).T.astype(numpy.int16))
-        #write(f'output/other.wav', rate, (y_pred_np[(6, 7), :] * 32767).T.astype(numpy.int16))
 
         output = {
             'rate': rate,

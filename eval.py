@@ -38,8 +38,6 @@ if __name__ == '__main__':
             stems = mus[song].stems[(1, 2, 4, 3), :, :]
 
 
-            # genereaza batches
-            # posibil memory leak
             x_batches = []
             total_batched = 0
             batch_size = 7938000  # 15 secunde
@@ -59,7 +57,6 @@ if __name__ == '__main__':
                 x_true = x_true.to(device="cuda")
                 output = model(x_true)
 
-                #s a intamplat ceva funky si acum sunt speriat
                 del x_true
                 output = output.to(device='cpu')
                 if y_pred == None:
@@ -101,11 +98,6 @@ if __name__ == '__main__':
                 eval_store.add_track(scores)
             except:
                 tqdm.write("problema cu scorurile... womp womp!")
-
-            #del y_pred
-
-            #gc.collect()
-            #torch.cuda.empty_cache()
 
         print(f'{eval_store}')
 
