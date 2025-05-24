@@ -252,7 +252,7 @@ if __name__ == '__main__':
 
     dtype = torch.float32
     device = torch.device("cuda")
-    learning_rate = 2e-4
+    learning_rate = 8e-5
     model = AudioModel()
     print(summary(model))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)

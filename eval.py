@@ -12,23 +12,24 @@ if __name__ == '__main__':
     mus = musdb.DB(subsets="test")
     with ((torch.no_grad())):
         dtype = torch.float32
-        device = torch.device("cuda")
-        # print(torch.cuda.is_available())
-        torch.set_default_device("cuda")
         model = SourceX.AudioModel()
-        model.to(device='cuda')
-        #try:
-        checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        try:
+            checkpoint = torch.load(f'istorie antrenari/azi/model.model', weights_only=True, map_location='cpu')
+            model.load_state_dict(checkpoint['model_state_dict'])
+            t = checkpoint['t']
 
-        model.eval()
-        tqdm.write('am incarcat model.model')
-        #except:
-        #    tqdm.write('nu am incarcat nici-un state dict')
-        #total_sdr_drums = 0
-        #total_sdr_bass = 0
-        #total_sdr_vocals = 0
-        #total_sdr_other = 0
+            del checkpoint
+
+            torch.cuda.empty_cache()
+            gc.collect()
+
+            model.eval()
+        except:
+            print('nu am incarcat nici-un state dict')
+        device = torch.device("cuda")
+        torch.set_default_device("cuda")
+        model.to(device='cuda')
+
         eval_store = museval.EvalStore()
         for song in tqdm(range(len(mus)), colour='#e0b0ff', file=sys.stdout):
             tqdm.write(f'song: {song}')
@@ -41,7 +42,7 @@ if __name__ == '__main__':
             # posibil memory leak
             x_batches = []
             total_batched = 0
-            batch_size = 661500  # 15 secunde
+            batch_size = 7938000  # 15 secunde
             while total_batched < input_file.shape[0]:
                 if input_file.shape[0] - batch_size >= total_batched:
                     x_batches.append(input_file[total_batched: total_batched + batch_size, :])
