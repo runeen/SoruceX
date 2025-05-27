@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from scipy.signal import butter
 from torchaudio.functional import filtfilt
+from torchtune.modules import RotaryPositionalEmbeddings
 from torchinfo import summary
 from tqdm import tqdm
 
@@ -48,8 +49,8 @@ class EncoderModule(torch.nn.Module):
         self.stride = stride
 
         self.conv1 = torch.nn.Conv1d(c_in, c_in, kernel_size=1)
-        self.glu = torch.nn.GLU(0)
-        self.down = torch.nn.Conv1d(c_in, c_out * 2, kernel_size=stride * 2, stride=stride)
+        #self.glu = torch.nn.GLU(0)
+        self.down = torch.nn.Conv1d(c_in, c_out, kernel_size=stride * 2, stride=stride)
 
         rescale_model(self, a=0.1)
 
@@ -66,7 +67,7 @@ class EncoderModule(torch.nn.Module):
         x = self.activation(self.conv1(x))
         skip = x
         x = self.pad_x(x, stride=self.stride)
-        x = self.glu(self.down(x))
+        x = self.activation(self.down(x))
         return x, skip
 
 
@@ -101,34 +102,75 @@ class DecoderModule(torch.nn.Module):
         return x
 
 
-#asta cred ca nu l mai folosesc ever saracu
-class BLSTMModule(torch.nn.Module):
-    def __init__(self, nr_hidden):
+class FFN(torch.nn.Module):
+    def __init__(self, in_hidden, mid_hidden, output_hidden, activation=torch.nn.CELU(1/8)):
         super().__init__()
-        self.FC1 = torch.nn.Sequential(
-            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
-            torch.nn.Linear(nr_hidden, nr_hidden)
-        )
-        self.ATT1 = torch.nn.MultiheadAttention(nr_hidden, 4)
-        #self.BLSTM = torch.nn.LSTM(input_size=nr_hidden, hidden_size=nr_hidden, bidirectional=True, num_layers=2)
-        self.FC2 = torch.nn.Sequential(
-            torch.nn.Linear(nr_hidden * 2, nr_hidden),
-        )
-        self.ATT2 = torch.nn.MultiheadAttention(nr_hidden, 4)
-        self.FC3 = torch.nn.Sequential(
-            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
-            torch.nn.Linear(nr_hidden, nr_hidden), torch.nn.Mish(),
-        )
-        rescale_model(self, a=0.1)
+        self.dense1 = torch.nn.Linear(in_hidden, mid_hidden)
+        self.activation = activation
+        self.dense2 = torch.nn.Linear(mid_hidden, output_hidden)
 
     def forward(self, x):
-        x = self.FC1(x)
-        x = self.ATT1(x, x, x)[0]
-        #x = self.BLSTM(x)[0]
-        x = self.FC2(x)
-        x = self.ATT2(x, x, x)[0]
-        x = self.FC3(x)
+        return self.dense2(self.activation(self.dense1(x)))
+
+class AddNorm(torch.nn.Module):
+    def __init__(self, norm_shape):
+        super().__init__()
+        self.ln = torch.nn.LayerNorm(norm_shape)
+
+    def forward(self, x, y):
+        return self.ln(y + x)
+
+class TransformerEncoderLayer(torch.nn.Module):
+    def __init__(self, hidden, fc_mid_hidden, heads, use_bias=False):
+        super().__init__()
+        self.attention = torch.nn.MultiheadAttention(hidden, heads, bias=use_bias)
+        self.addnorm = AddNorm(hidden)
+        self.ffn = FFN(hidden, fc_mid_hidden, hidden)
+
+    def forward(self, x):
+        y = self.addnorm(x, self.attention(x, x, x)[0])
+        return self.addnorm(y, self.ffn(y))
+
+class TransformerEncoder(torch.nn.Module):
+    def __init__(self, hidden, ffn_mid_hidden, heads, use_bias=False):
+        super().__init__()
+        self.RoPE = RotaryPositionalEmbeddings(hidden // heads)
+        self.hidden = hidden
+        self.heads = heads
+        self.layers = torch.nn.Sequential()
+        self.l1 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
+        self.l2 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
+        self.l3 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
+        #self.l4 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
+
+    def forward(self, x):
+        #print(x.shape)
+        batch_size = 1  # If you don't have a batch, set it to 1
+        time_length = x.shape[0]
+
+        # Reshape from (time, hidden) to (batch, time, heads, head_dim)
+        x = x.unsqueeze(0)  # Add batch dim -> (1, 217, 1000)
+        x = x.view(batch_size, time_length, self.heads, self.hidden // self.heads)
+        x = self.RoPE(x)
+        x = x.view(batch_size, time_length, -1)  # (1, 217, 1000)
+        x = x.squeeze(0)  # Back to (217, 1000) if needed
+
+        x = self.l1(x)
+        x = self.l2(x)
+        x = self.l3(x)
+        #x = self.l4(x)
         return x
+
+
+
+
+#Aici se odihneste LSTM-ul, desi nu va mai fi parte din model vreodata,
+#Acesta nu va pleca niciodata din LTM-ul nostru (Long term memry)
+#Ca e gen "Long Short Term Memory"
+#+ 4/9/2025 - 5/26/2025 +
+class BLSTMModule(torch.nn.Module):
+    def __init__(self, nr_hidden):
+        pass
 
 
 class BandModel(torch.nn.Module):
@@ -142,8 +184,7 @@ class BandModel(torch.nn.Module):
         self.encoder_layer_4 = EncoderModule(600, 750, activation=torch.nn.CELU(1/8))
         self.encoder_layer_5 = EncoderModule(750, 1000, activation=torch.nn.CELU(1/8))
 
-        # Numara ti zilele puiule
-        #self.BLSTM = BLSTMModule(1024)
+        self.TransformerEncoder = TransformerEncoder(1000, 1400, 4)
 
         self.decoder_layer_5 = DecoderModule(1000, 750,activation=torch.nn.CELU(1/8),  dim_skip=750)
         self.decoder_layer_4 = DecoderModule(750, 600, activation=torch.nn.CELU(1/8), dim_skip=600)
@@ -172,11 +213,11 @@ class BandModel(torch.nn.Module):
         x, skip_4 = self.encoder_layer_4(x)
         x, skip_5 = self.encoder_layer_5(x)
 
-        #x = torch.permute(x, (1, 0))
+        x = torch.permute(x, (1, 0))
 
-        #x = self.BLSTM(x)
+        x = self.TransformerEncoder(x)
 
-        #x = torch.permute(x, (1, 0))
+        x = torch.permute(x, (1, 0))
 
         x = self.decoder_layer_5(x, skip_5)
         x = self.decoder_layer_4(x, skip_4)
