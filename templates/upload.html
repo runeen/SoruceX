@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Source X</title>
+            <style>
+                body { font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; }
+                .upload-form { padding: 20px; text-align: center; }
+                .upload-btn {
+                    background-color: #33658A; color: white; padding: 10px 15px;
+                    border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;
+                }
+                .upload-btn:hover { background-color: #2F4858; }
+            </style>
+        </head>
+        <body>
+            <h1>Source X: Separarea surselor audio</h1>
+            <div class="upload-form">
+                <form action="/" method="post" enctype="multipart/form-data">
+                    <input type="file" name="file" accept=".wav" required>
+                    <br>
+                    <button type="submit" class="upload-btn">Separa Si Descarca Surse</button>
+                </form>
+            </div>
+            <p>Incarcati un fisier (WAV) pentru a fi separat in surse (drums, bass, vocals, etc.)</p>
+        </body>
+        </html>
