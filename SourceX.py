@@ -3,15 +3,14 @@ import math
 import os
 import random
 import sys
-import time
 
 import musdb
 import numpy as np
 import torch
 from scipy.signal import butter
 from torchaudio.functional import filtfilt
-from torchtune.modules import RotaryPositionalEmbeddings
 from torchinfo import summary
+from torchtune.modules import RotaryPositionalEmbeddings
 from tqdm import tqdm
 
 import augment
@@ -22,15 +21,18 @@ torch.backends.cudnn.benchmark = True
 
 
 class ModifiedCelu(torch.nn.Module):
-    def __init__(self, celu = None):
+    def __init__(self, celu=None):
         super(ModifiedCelu, self).__init__()
-        if celu is None: self.activation = torch.nn.CELU(alpha=1/8)
-        else: self.activation = celu
+        if celu is None:
+            self.activation = torch.nn.CELU(alpha=1 / 8)
+        else:
+            self.activation = celu
 
     def forward(self, x):
         return self.activation(x + 1) - 1
 
-#similar cu functia din demucs
+
+# similar cu functia din demucs
 def rescale_model(model, a):
     for sub in model.modules():
         if isinstance(sub, (torch.nn.Conv1d, torch.nn.ConvTranspose1d, torch.nn.Linear)):
@@ -42,20 +44,21 @@ def rescale_model(model, a):
 
 
 class EncoderModule(torch.nn.Module):
-    def __init__(self, c_in, c_out, activation=None, stride = 4):
+    def __init__(self, c_in, c_out, activation=None, stride=4):
         super().__init__()
-        if activation is None:  self.activation = torch.nn.CELU(alpha = 1/8)
-        else: self.activation = activation
+        if activation is None:
+            self.activation = torch.nn.CELU(alpha=1 / 8)
+        else:
+            self.activation = activation
         self.stride = stride
 
         self.conv1 = torch.nn.Conv1d(c_in, c_in, kernel_size=1)
-        #self.glu = torch.nn.GLU(0)
+        # self.glu = torch.nn.GLU(0)
         self.down = torch.nn.Conv1d(c_in, c_out, kernel_size=stride * 2, stride=stride)
 
         rescale_model(self, a=0.1)
 
     def pad_x(self, x: torch.Tensor, stride: int):
-        # rescrie asta sa mearga cu conv1d
         if (x.shape[1]) % stride != 0:
             delta = stride - (x.shape[1] % stride)
             x = torch.cat([x, torch.zeros((x.shape[0], delta + (stride * 2)), device='cuda')], dim=1)
@@ -82,7 +85,7 @@ class DecoderModule(torch.nn.Module):
         self.use_glu = use_glu
 
         if activation is None:
-            self.activation = torch.nn.CELU(1/8)
+            self.activation = torch.nn.CELU(1 / 8)
         else:
             self.activation = activation
 
@@ -103,7 +106,7 @@ class DecoderModule(torch.nn.Module):
 
 
 class FFN(torch.nn.Module):
-    def __init__(self, in_hidden, mid_hidden, output_hidden, activation=torch.nn.CELU(1/8)):
+    def __init__(self, in_hidden, mid_hidden, output_hidden, activation=torch.nn.CELU(1 / 8)):
         super().__init__()
         self.dense1 = torch.nn.Linear(in_hidden, mid_hidden)
         self.activation = activation
@@ -112,6 +115,7 @@ class FFN(torch.nn.Module):
     def forward(self, x):
         return self.dense2(self.activation(self.dense1(x)))
 
+
 class AddNorm(torch.nn.Module):
     def __init__(self, norm_shape):
         super().__init__()
@@ -119,6 +123,7 @@ class AddNorm(torch.nn.Module):
 
     def forward(self, x, y):
         return self.ln(y + x)
+
 
 class TransformerEncoderLayer(torch.nn.Module):
     def __init__(self, hidden, fc_mid_hidden, heads, use_bias=False):
@@ -131,6 +136,7 @@ class TransformerEncoderLayer(torch.nn.Module):
         y = self.addnorm(x, self.attention(x, x, x)[0])
         return self.addnorm(y, self.ffn(y))
 
+
 class TransformerEncoder(torch.nn.Module):
     def __init__(self, hidden, ffn_mid_hidden, heads, use_bias=False):
         super().__init__()
@@ -141,11 +147,11 @@ class TransformerEncoder(torch.nn.Module):
         self.l1 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
         self.l2 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
         self.l3 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
-        #self.l4 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
+        # self.l4 = TransformerEncoderLayer(hidden, ffn_mid_hidden, heads, use_bias=use_bias)
 
     def forward(self, x):
-        #print(x.shape)
-        batch_size = 1  # If you don't have a batch, set it to 1
+        # print(x.shape)
+        batch_size = 1  # Nu avem batch deci trb sa spunem ca avem 1
         time_length = x.shape[0]
 
         # Reshape from (time, hidden) to (batch, time, heads, head_dim)
@@ -158,16 +164,14 @@ class TransformerEncoder(torch.nn.Module):
         x = self.l1(x)
         x = self.l2(x)
         x = self.l3(x)
-        #x = self.l4(x)
+        # x = self.l4(x)
         return x
 
 
-
-
-#Aici se odihneste LSTM-ul, desi nu va mai fi parte din model vreodata,
-#Acesta nu va pleca niciodata din LTM-ul nostru (Long term memry)
-#Ca e gen "Long Short Term Memory"
-#+ 4/9/2025 - 5/26/2025 +
+# Aici se odihneste LSTM-ul, desi nu va mai fi parte din model vreodata,
+# Acesta nu va pleca niciodata din LTM-ul nostru (Long term memry)
+# Ca e gen "Long Short Term Memory"
+# + 4/9/2025 - 5/26/2025 +
 class BLSTMModule(torch.nn.Module):
     def __init__(self, nr_hidden):
         pass
@@ -176,24 +180,25 @@ class BLSTMModule(torch.nn.Module):
 class BandModel(torch.nn.Module):
     def __init__(self, filter_params=None):
         super().__init__()
-        self.celu = torch.nn.CELU(1/8)
-        self.modified_celu = ModifiedCelu(torch.nn.CELU(1/8))
-        self.encoder_layer_1 = EncoderModule(2, 100, activation=ModifiedCelu(torch.nn.CELU(1/8)))
-        self.encoder_layer_2 = EncoderModule(100, 300, activation=ModifiedCelu(torch.nn.CELU(1/8)))
-        self.encoder_layer_3 = EncoderModule(300, 600, activation=ModifiedCelu(torch.nn.CELU(1/8)))
-        self.encoder_layer_4 = EncoderModule(600, 750, activation=torch.nn.CELU(1/8))
-        self.encoder_layer_5 = EncoderModule(750, 1000, activation=torch.nn.CELU(1/8))
+        self.celu = torch.nn.CELU(1 / 8)
+        self.modified_celu = ModifiedCelu(torch.nn.CELU(1 / 8))
+        self.encoder_layer_1 = EncoderModule(2, 100, activation=ModifiedCelu(torch.nn.CELU(1 / 8)))
+        self.encoder_layer_2 = EncoderModule(100, 300, activation=ModifiedCelu(torch.nn.CELU(1 / 8)))
+        self.encoder_layer_3 = EncoderModule(300, 600, activation=ModifiedCelu(torch.nn.CELU(1 / 8)))
+        self.encoder_layer_4 = EncoderModule(600, 750, activation=torch.nn.CELU(1 / 8))
+        self.encoder_layer_5 = EncoderModule(750, 1000, activation=torch.nn.CELU(1 / 8))
 
         self.TransformerEncoder = TransformerEncoder(1000, 1400, 4)
 
-        self.decoder_layer_5 = DecoderModule(1000, 750,activation=torch.nn.CELU(1/8),  dim_skip=750)
-        self.decoder_layer_4 = DecoderModule(750, 600, activation=torch.nn.CELU(1/8), dim_skip=600)
-        self.decoder_layer_3 = DecoderModule(600, 300, activation=ModifiedCelu(torch.nn.CELU(1/8)), dim_skip=300)
-        self.decoder_layer_2 = DecoderModule(300, 100, activation=ModifiedCelu(torch.nn.CELU(1/8)), dim_skip=100)
-        self.decoder_layer_1 = DecoderModule(100, 8, dim_skip=2, activation=ModifiedCelu(torch.nn.CELU(1/8)), use_glu=False)
+        self.decoder_layer_5 = DecoderModule(1000, 750, activation=torch.nn.CELU(1 / 8), dim_skip=750)
+        self.decoder_layer_4 = DecoderModule(750, 600, activation=torch.nn.CELU(1 / 8), dim_skip=600)
+        self.decoder_layer_3 = DecoderModule(600, 300, activation=ModifiedCelu(torch.nn.CELU(1 / 8)), dim_skip=300)
+        self.decoder_layer_2 = DecoderModule(300, 100, activation=ModifiedCelu(torch.nn.CELU(1 / 8)), dim_skip=100)
+        self.decoder_layer_1 = DecoderModule(100, 8, dim_skip=2, activation=ModifiedCelu(torch.nn.CELU(1 / 8)),
+                                             use_glu=False)
 
-        #self.a = None
-        #self.b = None
+        # self.a = None
+        # self.b = None
         self.use_filter = False
         if filter_params is not None:
             self.a = filter_params[1].to(device='cuda')
@@ -270,9 +275,10 @@ class AudioModel(torch.nn.Module):
         x = torch.permute(x, (1, 0))
         return x
 
+
 # de pe forum pytorch pentru ca nu exista functie implementata
-#pentru a muta optimizatorul pe GPU deci doar se pune functia
-#asta
+# pentru a muta optimizatorul pe GPU deci doar se pune functia
+# asta
 def optimizer_to(optim, device):
     for param in optim.state.values():
         if isinstance(param, torch.Tensor):
@@ -291,7 +297,7 @@ if __name__ == '__main__':
 
     dtype = torch.float32
     device = torch.device("cuda")
-    learning_rate = 8e-5
+    learning_rate = 4e-5
     model = AudioModel()
     print(summary(model))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -376,7 +382,7 @@ if __name__ == '__main__':
                 nr_batched_batches = 2
                 nr_batches_epoch += nr_batches
                 for idx in range(len(s1_batches)):
-                    #t0 = time.perf_counter()
+                    # t0 = time.perf_counter()
                     s1 = s1_batches.pop(0)
                     s2 = s2_batches.pop(0)
                     s3 = s3_batches.pop(0)
@@ -406,7 +412,7 @@ if __name__ == '__main__':
                     optimizer.step()
                     optimizer.zero_grad()
 
-                    #print(time.perf_counter() - t0)
+                    # print(time.perf_counter() - t0)
 
                 del s1_batches
                 del s2_batches

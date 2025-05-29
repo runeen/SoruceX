@@ -305,7 +305,7 @@ Aggrated Scores (median over frames, median over tracks)
 vocals          ==> SDR:   1.940  SIR:   6.631  ISR:   4.827  SAR:   1.993  !!!! wow
 drums           ==> SDR:   2.966  SIR:   4.101  ISR:   6.351  SAR:   4.003
 bass            ==> SDR:   1.645  SIR:   1.660  ISR:   5.535  SAR:   2.639
-other           ==> SDR:   1.434  SIR:   0.791  ISR:   4.045  SAR:   2.968
+other           ==> SDR:   1.434  SIR:   0.791  ISR:   4.045  SAR:   2.968/
 
 
 Process finished with exit code 0

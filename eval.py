@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
             x_batches = []
             total_batched = 0
-            batch_size = 7938000  # 15 secunde
+            batch_size = 2646000  # 15 secunde
             while total_batched < input_file.shape[0]:
                 if input_file.shape[0] - batch_size >= total_batched:
                     x_batches.append(input_file[total_batched: total_batched + batch_size, :])
