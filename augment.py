@@ -119,16 +119,16 @@ class Augment:
         if random.uniform(0, 3) > 2 :
             self.y_true = self.re_level.forward(self.y_true)
             self.modified = True
-        if random.uniform(0, 3) > 2:
+        if random.uniform(0, 10) > 9:
             self.y_true = self.mute.forward(self.y_true)
             self.modified = True
-        if random.uniform(0, 11) > 10 :
-            self.y_true = self.channel_lin_tran.forward(self.y_true)
-            self.modified = True
+        #if random.uniform(0, 11) > 10 :
+        #    self.y_true = self.channel_lin_tran.forward(self.y_true)
+        #    self.modified = True
         elif random.uniform(0, 11) > 10:
             self.y_true = self.mono.forward(self.y_true)
             self.modified = True
-        if random.uniform(0, 13) > 12 : self.replace_y_true_with_diff()
+        #if random.uniform(0, 13) > 12 : self.replace_y_true_with_diff()
 
         err = self.calc_x_true()
 
