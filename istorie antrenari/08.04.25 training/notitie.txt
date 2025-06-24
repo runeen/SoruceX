@@ -1,0 +1,9 @@
+Avem 3 SDR!
+Mai trebuie sa adaug BLSTM-ul si o sa avem ceva similar cu demucs.
+Desi mi ar placea sa avem 4 tensori separati la partea de decoding.
+
+t- 221, song- 99, mse: 0.0022830700036138296, rmse:0.04778148180638426
+vocals          ==> SDR:   3.049  SIR:   7.535  ISR:   4.014  SAR:   7.982
+drums           ==> SDR:   1.628  SIR:  -1.513  ISR:   2.443  SAR:  12.489
+bass            ==> SDR:   2.545  SIR:  -0.832  ISR:   4.621  SAR:  11.392
+other           ==> SDR:   0.270  SIR:  -7.353  ISR:   1.999  SAR:   9.509
