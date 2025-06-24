@@ -168,15 +168,6 @@ class TransformerEncoder(torch.nn.Module):
         return x
 
 
-# Aici se odihneste LSTM-ul, desi nu va mai fi parte din model vreodata,
-# Acesta nu va pleca niciodata din LTM-ul nostru (Long term memry)
-# Ca e gen "Long Short Term Memory"
-# + 4/9/2025 - 5/26/2025 +
-class BLSTMModule(torch.nn.Module):
-    def __init__(self, nr_hidden):
-        pass
-
-
 class BandModel(torch.nn.Module):
     def __init__(self, filter_params=None):
         super().__init__()
