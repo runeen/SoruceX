@@ -40,6 +40,8 @@ The outputs from the four band models are concatenated and passed through a fina
 Note: There are no model checkpoints provided, you need to train the model yourself (by running the SourceX script)
 
 ### Web Interface (Easiest)
+<img width="806" height="460" alt="Interfata aplicatiei web" src="https://github.com/user-attachments/assets/ae0b4146-a925-4b97-aa0c-9048b36ff715" />
+
 1.  Launch the Flask application:
     ```bash
     python flask_app.py
