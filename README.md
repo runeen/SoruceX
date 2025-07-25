@@ -10,6 +10,8 @@ SoruceX is a deep learning model for audio source separation. It is designed to 
 *   Provides complete scripts for training on the MUSDB dataset and evaluation using `museval`.
 
 ## Architecture
+<img width="1711" height="588" alt="Structura_Componente" src="https://github.com/user-attachments/assets/5b7e6b40-f648-4f9f-a3ae-2136b14c389c" />
+
 The core model (`AudioModel` in `SourceX.py`) processes the audio signal across four frequency bands to capture features at different resolutions:
 1.  **Full Band:** The raw, unfiltered audio.
 2.  **Low-Pass Band:** Below 400 Hz, processed with a Butterworth filter.
