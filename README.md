@@ -37,7 +37,7 @@ The outputs from the four band models are concatenated and passed through a fina
     ```
 3.  The model is configured to use a CUDA-enabled GPU. Ensure you have a compatible PyTorch version with CUDA support installed.
 
-Note: There are no model checkpoints provided, you need to train the model yourself (by running the SourceX script)
+Note: There are no model checkpoints provided, you need to train the model yourself (by running the SourceX script with the musdb dataset downloaded and referenced in you environment variables)
 
 ### Web Interface (Easiest)
 <img width="806" height="460" alt="Interfata aplicatiei web" src="https://github.com/user-attachments/assets/ae0b4146-a925-4b97-aa0c-9048b36ff715" />
